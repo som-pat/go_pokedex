@@ -60,7 +60,10 @@ func repl_input(cfg_state *config_state){
 			fmt.Println("Not a generic command")
 			continue
 		} 
-		route_com.callback(cfg_state)
+		err :=route_com.callback(cfg_state)
+		if err != nil {
+			fmt.Println(err)
+		}
 
 	}	
 }
