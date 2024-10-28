@@ -3,15 +3,19 @@ package main
 import (
 	"fmt"
 	"log"
-	"github.com/som-pat/poke_dex/internal/pokeapi"
 )
 
-func call_mapb() error{
-	pokeapi_client := pokeapi.NewClient()
-	resp, err := pokeapi_client.InvokeLocs()
+func call_mapb(cfg_state *config_state) error{	
+	resp, err := cfg_state.pokeapiClient.InvokeLocs(cfg_state.prevLocURL)
 	if err!= nil{
 		log.Fatal(err)
 	}
-	fmt.Println(resp)
+	fmt.Println("Previous Locations:")
+	for _, area := range resp. Results{
+		fmt.Printf("- %s\n", area.Name)
+	}
+	cfg_state.nextLocURL = resp.Next
+	cfg_state.prevLocURL = resp.Previous
+
 	return nil
 }

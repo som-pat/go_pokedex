@@ -8,9 +8,12 @@ import (
 )
 
 
-func (c *Client) InvokeLocs() (LocationAreaResp, error){
+func (c *Client) InvokeLocs(pageURL *string) (LocationAreaResp, error){
 	end_point := "/location"
 	full_url := baseURL + end_point
+	if pageURL != nil {
+		full_url = *pageURL
+	}
 
 	req, err := http.NewRequest("GET", full_url, nil)
 	if err != nil {

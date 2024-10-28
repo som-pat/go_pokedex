@@ -10,7 +10,7 @@ import (
 type cliCommand struct {
 	name        string
 	description string
-	callback    func() error
+	callback    func(*config_state) error
 }
 
 func get_command() map[string] cliCommand{
@@ -39,25 +39,28 @@ func get_command() map[string] cliCommand{
 	}
 }
 
-func repl_input(){
+func repl_input(cfg_state *config_state){
 	input := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("pokedex >")
 		input.Scan()
 		input_text := input.Text()
 		new_input := input_clean(input_text)
+		
+		// Empty commands
 		if len(new_input) == 0{
 			continue
 		}
 		com := new_input[0]
 		avail_com := get_command()
 		
+		// Check if valid command
 		route_com,ok  := avail_com[com]
 		if !ok{
 			fmt.Println("Not a generic command")
 			continue
 		} 
-		route_com.callback()
+		route_com.callback(cfg_state)
 
 	}	
 }
