@@ -14,6 +14,17 @@ func (c *Client) InvokeLocs(pageURL *string) (LocationAreaResp, error){
 	if pageURL != nil {
 		full_url = *pageURL
 	}
+	// check cache
+	cache_data, ok := c.cache.Get(full_url)
+	if ok{
+		fmt.Println("Cache hit, looting booty")
+		loc_resp := LocationAreaResp{}
+		err := json.Unmarshal(cache_data, &loc_resp)		
+		if err != nil {
+			return LocationAreaResp{}, err
+		}
+		return loc_resp, nil
+	}
 
 	req, err := http.NewRequest("GET", full_url, nil)
 	if err != nil {
@@ -42,6 +53,8 @@ func (c *Client) InvokeLocs(pageURL *string) (LocationAreaResp, error){
 	if err != nil {
 		return LocationAreaResp{}, err
 	}
+
+	c.cache.Add(full_url, data)
 	return loc_resp, nil
 
 

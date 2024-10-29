@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/som-pat/poke_dex/internal/pokeapi"
 )
 
@@ -12,9 +14,8 @@ type config_state struct{
 
 func main()	{
 	cfg_state := config_state{
-		pokeapiClient: pokeapi.NewClient(),
-	}
-	
+		pokeapiClient: pokeapi.NewClient(time.Hour),
+	}	
 	repl_input(&cfg_state)
 	
 }
