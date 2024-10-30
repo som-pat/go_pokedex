@@ -16,7 +16,7 @@ func call_catch(cfg_state *config_state, args ...string) error{
 	}
 	
 	// three chances to catch after that poke will escape
-	const chances = 75
+	const chances = 60
 	for i:=1;i<=3;i++{
 		randChances := rand.Intn(chances)
 		randBaseExp := rand.Intn(pokemon.BaseExperience)
@@ -27,6 +27,8 @@ func call_catch(cfg_state *config_state, args ...string) error{
 		cfg_state.pokemonCaught[pokemon.Name] = pokemon
 		break
 		}
+	fmt.Println()
+	fmt.Printf("Unable to catch %s, better luck next time \n", poke_name)
 	} 
 	return nil
 }
