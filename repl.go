@@ -42,13 +42,19 @@ func get_command() map[string] cliCommand{
 			description: "Display Pokemons in chosen location",
 			callback:    call_explore,
 		},
+
+		"catch":{
+			name:		 "catch{Pokemon_name}",
+			description: "Catch Pokemons",
+			callback:    call_catch,
+		},
 	}
 }
 
 func repl_input(cfg_state *config_state){
 	input := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Print("pokedex >")
+		fmt.Print("pokedex > ")
 		input.Scan()
 		input_text := input.Text()
 		new_input := input_clean(input_text)
