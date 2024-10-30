@@ -27,8 +27,12 @@ func call_catch(cfg_state *config_state, args ...string) error{
 		cfg_state.pokemonCaught[pokemon.Name] = pokemon
 		break
 		}
-	fmt.Println()
-	fmt.Printf("Unable to catch %s, better luck next time \n", poke_name)
-	} 
+	}
+	pokemon, ok := cfg_state.pokemonCaught[pokemon.Name]
+	if !ok{
+		fmt.Println()
+		fmt.Printf("Unable to catch %s, better luck next time \n", poke_name)
+		fmt.Println()
+	}
 	return nil
 }
