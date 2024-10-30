@@ -10,7 +10,7 @@ import (
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*config_state) error
+	callback    func(*config_state, ...string) error
 }
 
 func get_command() map[string] cliCommand{
@@ -36,6 +36,12 @@ func get_command() map[string] cliCommand{
 			description: "Display previous 20 locations",
 			callback:    call_mapb,
 		},
+		
+		"explore":{
+			name:		 "explore{Location_area}",
+			description: "Display Pokemons in chosen location",
+			callback:    call_explore,
+		},
 	}
 }
 
@@ -52,6 +58,11 @@ func repl_input(cfg_state *config_state){
 			continue
 		}
 		com := new_input[0]
+		args := []string{}
+		if len(new_input)>1{
+			args = new_input[1:]
+		}
+
 		avail_com := get_command()
 		
 		// Check if valid command
@@ -60,7 +71,7 @@ func repl_input(cfg_state *config_state){
 			fmt.Println("Not a generic command")
 			continue
 		} 
-		err :=route_com.callback(cfg_state)
+		err :=route_com.callback(cfg_state, args...)
 		if err != nil {
 			fmt.Println(err)
 		}

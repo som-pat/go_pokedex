@@ -1,6 +1,7 @@
 package pokecache
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -59,11 +60,35 @@ func TestPurge(t *testing.T){
 		
 		_,ok := cache.Get(cas.inputkey)
 		if ok{
-			t.Errorf("%s should have need be purged",
+			t.Errorf("%s should be purged",
 				cas.inputkey)
 		}
 	}
 
-	
+}
+
+func TestPurgeFail(t *testing.T){
+	interval := time.Millisecond *10
+	cache := CreateCache(interval)
+	new_case := []struct{
+		inputkey string
+		inputval []byte
+	}{
+		{
+			inputkey: "Wizard",
+			inputval: []byte("Virgin"),
+		},
+	}
+	for _, cas := range(new_case){
+		cache.Add(cas.inputkey, cas.inputval)
+		time.Sleep(interval /2)
+		
+		cachem,ok := cache.Get(cas.inputkey)
+		if !ok{
+			t.Errorf("%s should not be purged",
+				cas.inputkey)
+			fmt.Println(cachem)
+		}
+	}
 
 }

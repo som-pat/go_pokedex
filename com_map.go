@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"errors"
 )
-func call_map(cfg_state *config_state) error{
+func call_map(cfg_state *config_state, args ...string) error{
 	resp, err := cfg_state.pokeapiClient.InvokeLocs(cfg_state.nextLocURL)
 	if err!= nil{
 		return err
@@ -18,7 +18,7 @@ func call_map(cfg_state *config_state) error{
 	return nil
 }
 
-func call_mapb(cfg_state *config_state) error{	
+func call_mapb(cfg_state *config_state, args ...string) error{	
 	if cfg_state.prevLocURL == nil{
 		return errors.New("you're on the 1st page")
 	}
