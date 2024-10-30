@@ -48,6 +48,12 @@ func get_command() map[string] cliCommand{
 			description: "Catch Pokemons",
 			callback:    call_catch,
 		},
+		
+		"inspect":{
+			name:		 "Inspect{Pokemon_name}",
+			description: "Inspect caught Pokemons",
+			callback:    call_pokeInspect,
+		},
 	}
 }
 
