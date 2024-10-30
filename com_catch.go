@@ -15,6 +15,7 @@ func call_catch(cfg_state *config_state, args ...string) error{
 		return err
 	}
 	
+	// three chances to catch after that poke will escape
 	const threshold = 50
 	
 		randchances := rand.Intn(pokemon.BaseExperience)
@@ -22,6 +23,6 @@ func call_catch(cfg_state *config_state, args ...string) error{
 			return fmt.Errorf("%s not caught ", pokemon.Name)
 		}
 		fmt.Printf("%s caught \n", pokemon.Name) 
-	
+	cfg_state.pokemonCaught[pokemon.Name] = pokemon
 	return nil
 }

@@ -1,9 +1,13 @@
 package pokecache
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 type Cache struct{
 	cache 	map[string]cache_entry
+	mux 	*sync.Mutex
 }
 
 type cache_entry struct{
@@ -12,12 +16,17 @@ type cache_entry struct{
 }
 
 func CreateCache(inter_time time.Duration) Cache {
-	c:=  Cache{cache: make(map[string]cache_entry),}
+	c:=  Cache{
+		cache: make(map[string]cache_entry),
+		mux: &sync.Mutex{},
+	}
 	go c.LooPurge(inter_time)
 	return c
 }
 
 func (c *Cache) Add(key string, val []byte){
+	c.mux.Lock()
+	defer c.mux.Unlock()
 	c.cache[key] = cache_entry{
 		val : val,
 		instance: time.Now().UTC(),
@@ -39,6 +48,8 @@ func (c *Cache) LooPurge(inter_time time.Duration){
 
 
 func (c *Cache) Purge(inter_time time.Duration) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
 	interval := time.Now().UTC().Add(-inter_time)
 	for k, v := range c.cache{
 		if v.instance.Before(interval){
