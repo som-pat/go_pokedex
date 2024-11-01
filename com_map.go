@@ -3,35 +3,38 @@ package main
 import (
 	"fmt"
 	"errors"
+	"strings"
 )
-func call_map(cfg_state *config_state, args ...string) error{
+func call_map(cfg_state *ConfigState, args ...string) (string,error){
 	resp, err := cfg_state.pokeapiClient.InvokeLocs(cfg_state.nextLocURL)
 	if err!= nil{
-		return err
+		return "",errors.New("next page does not exist")
 	}
-	fmt.Println("Locations:")
+	var displayloc strings.Builder
+	displayloc.WriteString("Locations: \n")
 	for _, area := range resp. Results{
-		fmt.Printf("- %s\n", area.Name)
+		displayloc.WriteString(fmt.Sprintf("- %s\n", area.Name))
 	}
 	cfg_state.nextLocURL = resp.Next
 	cfg_state.prevLocURL = resp.Previous
-	return nil
+	return displayloc.String(), nil
 }
 
-func call_mapb(cfg_state *config_state, args ...string) error{	
+func call_mapb(cfg_state *ConfigState, args ...string) (string, error){	
 	if cfg_state.prevLocURL == nil{
-		return errors.New("you're on the 1st page")
+		return "",errors.New("you're on the 1st page")
 	}
 	resp, err := cfg_state.pokeapiClient.InvokeLocs(cfg_state.prevLocURL)
 	if err!= nil{
-		return err
+		return "",err
 	}
-	fmt.Println("Previous Locations:")
+	var displayprevloc strings.Builder
+	displayprevloc.WriteString("Previous Locations: \n")
 	for _, area := range resp. Results{
-		fmt.Printf("- %s\n", area.Name)
+		displayprevloc.WriteString(fmt.Sprintf("- %s\n", area.Name))
 	}
 	cfg_state.nextLocURL = resp.Next
 	cfg_state.prevLocURL = resp.Previous
 
-	return nil
+	return displayprevloc.String(),nil
 }

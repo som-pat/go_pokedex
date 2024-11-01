@@ -1,13 +1,17 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
-func call_help(cfg_state *config_state, args ...string) error{
-	fmt.Println("below are the current commands")
+func call_help(cfg_state *ConfigState, args ...string) (string,error){
+	var result strings.Builder
+	result.WriteString("Available Commands:\n\n")
 	avail_coms := get_command()
 	for _,com := range avail_coms{
-		fmt.Println(com.name)
+		result.WriteString(fmt.Sprintf("- %s : %s \n",com.name, com.description))
 	}
 
-	return nil
+	return result.String(), nil
 }

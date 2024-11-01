@@ -2,22 +2,28 @@ package main
 
 import (
 	"time"
-
 	"github.com/som-pat/poke_dex/internal/pokeapi"
+
+
 )
 
-type config_state struct{
+type ConfigState struct{
 	pokeapiClient pokeapi.Client
 	nextLocURL *string
 	prevLocURL *string
 	pokemonCaught map[string] pokeapi.PokemonDetails
 }
 
+
 func main()	{
-	cfg_state := config_state{
+
+	cfg_state := ConfigState{
 		pokeapiClient: pokeapi.NewClient(time.Hour),
 		pokemonCaught: make(map[string]pokeapi.PokemonDetails),
-	}	
-	repl_input(&cfg_state)
+	}
+
+	Run(&cfg_state)
+		
+	// repl_input(&cfg_state)
 	
 }

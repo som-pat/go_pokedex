@@ -17,7 +17,6 @@ func (c *Client) InvokeLocs(pageURL *string) (LocationAreaResp, error){
 	// check cache
 	cache_data, ok := c.cache.Get(full_url)
 	if ok{
-		fmt.Println("Cache hit, looting booty")
 		loc_resp := LocationAreaResp{}
 		err := json.Unmarshal(cache_data, &loc_resp)		
 		if err != nil {
