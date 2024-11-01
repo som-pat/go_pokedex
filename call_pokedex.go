@@ -5,9 +5,9 @@ import "errors"
 import "strings"
 
 
-func call_pokedex(cfg_state *ConfigState, args ...string) (string,error){
+func call_pokedex(cfg_state *ConfigState, args ...string) (string,[]string,error){
 	if len(cfg_state.pokemonCaught) == 0{
-		return "",errors.New("no pokemon caught till now")
+		return "",nil,errors.New("no pokemon caught till now")
 	}
 	var caught_pokemon strings.Builder
 
@@ -15,5 +15,5 @@ func call_pokedex(cfg_state *ConfigState, args ...string) (string,error){
 		caught_pokemon.WriteString(fmt.Sprintf(" - %s \n", poke.Name))
 	}
 	
-	return caught_pokemon.String(),nil
+	return caught_pokemon.String(),nil,nil
 }

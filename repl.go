@@ -8,7 +8,7 @@ import (
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*ConfigState, ...string) (string,error)
+	callback    func(*ConfigState, ...string) (string,[]string,error)
 }
 
 func get_command() map[string] cliCommand{
@@ -36,7 +36,7 @@ func get_command() map[string] cliCommand{
 		},
 		
 		"explore":{
-			name:		 "explore{Location_area}",
+			name:		 "explore 'location_area' ",
 			description: "Display Pokemons in chosen location",
 			callback:    call_explore,
 		},
@@ -61,12 +61,12 @@ func get_command() map[string] cliCommand{
 	}
 }
 
-func repl_input(cfg_state *ConfigState, input string) (string){
+func repl_input(cfg_state *ConfigState, input string) (string,[]string){
 	new_input := input_clean(input)
 	
 	// Empty commands
 	if len(new_input) == 0{
-		return "No command entered. Type 'help' for a list of commands."
+		return "No command entered. Type 'help' for a list of commands.",nil
 	}
 	com := new_input[0]
 	args := []string{}
@@ -79,15 +79,15 @@ func repl_input(cfg_state *ConfigState, input string) (string){
 	// Check if valid command
 	route_com,ok  := avail_com[com]
 	if !ok{
-		return "Unknown command. Type 'help' for a list of available commands."
+		return "Unknown command. Type 'help' for a list of available commands.",nil
 	}
 
-	res,err :=route_com.callback(cfg_state, args...)
+	res,lis,err :=route_com.callback(cfg_state, args...)
 	if err != nil {
-		return fmt.Sprintf("Error: %v",err)
+		return fmt.Sprintf("Error: %v",err),nil
 	}
 
-	return res
+	return res,lis
 		
 }
 

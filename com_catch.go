@@ -7,15 +7,15 @@ import (
 	"strings"
 )
 
-func call_catch(cfg_state *ConfigState, args ...string) (string,error){
+func call_catch(cfg_state *ConfigState, args ...string) (string,[]string,error){
 	if len(args) != 1{
-		return "",errors.New("no pokemon name provided")
+		return "",nil,errors.New("no pokemon name provided")
 	}
 	poke_name := args[0]	
 
 	pokemon, err := cfg_state.pokeapiClient.InvokePokeCatch(poke_name)
 	if err!= nil{
-		return "",err
+		return "",nil,err
 	}
 	
 	var catchchance strings.Builder
@@ -38,5 +38,5 @@ func call_catch(cfg_state *ConfigState, args ...string) (string,error){
 		catchchance.WriteString(fmt.Sprintf("Unable to catch %s, better luck next time \n", poke_name))
 		catchchance.WriteString("\n")
 	}
-	return catchchance.String(),nil
+	return catchchance.String(),nil,nil
 }

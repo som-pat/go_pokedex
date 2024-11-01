@@ -7,15 +7,15 @@ import (
 )
 
 
-func call_pokeInspect(cfg_state *ConfigState, args ...string) (string,error){
+func call_pokeInspect(cfg_state *ConfigState, args ...string) (string,[]string,error){
 	if len(args) != 1{
-		return "",errors.New("no pokemon name provided")
+		return "",nil,errors.New("no pokemon name provided")
 	}	
 	poke_name := args[0]	
 
 	pokemon, ok := cfg_state.pokemonCaught[poke_name] 
 	if !ok {
-		return "",fmt.Errorf("pokemon %s not caught", poke_name)
+		return "",nil,fmt.Errorf("pokemon %s not caught", poke_name)
 	}
 	var pokedetails strings.Builder
 	pokedetails.WriteString(fmt.Sprintf("Name: %s \n", pokemon.Name))
@@ -31,5 +31,5 @@ func call_pokeInspect(cfg_state *ConfigState, args ...string) (string,error){
 	}
 
 	
-	return pokedetails.String(), nil
+	return pokedetails.String(),nil,nil
 }

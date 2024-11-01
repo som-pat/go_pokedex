@@ -12,9 +12,19 @@ import (
 )
 
 type btBaseModel struct{
-    textInput textinput.Model
-    output    string
-	cfgState  *ConfigState
+    textInput 		textinput.Model
+    output    		string
+	cfgState  		*ConfigState
+	locationList	*Paginatedlisting
+	PokemonList		*Paginatedlisting
+	showLoc			bool
+	showPoke		bool
+}
+
+type Paginatedlisting struct{
+	Items 		[]string
+	count 		int
+	selectIndex int
 }
 
 func clearScreen() {
@@ -33,6 +43,10 @@ func takeInput(cfgState *ConfigState) btBaseModel{
 		textInput: ti,
 		output:    "Welcome to PokeCLI!\nType 'explore' to search for Pokémon, 'catch' to catch one, or 'quit' to exit.",
 		cfgState: cfgState,
+		locationList: &Paginatedlisting{},
+		PokemonList: &Paginatedlisting{},
+		showLoc: false,
+		showPoke: false,
 	}
 }
 
@@ -50,8 +64,24 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "enter":
-			m.output = processCommand(m.textInput.Value(),m.cfgState)
-			m.textInput.SetValue("")
+			if strings.HasPrefix(m.textInput.Value(),"explore"){
+				m.output,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
+				
+				m.textInput.SetValue("")
+
+			} else if strings.HasPrefix(m.textInput.Value(), "catch"){
+				m.output,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
+				
+				m.textInput.SetValue("")
+
+			} else if strings.Contains(m.textInput.Value(),"map"){
+				m.output,m.locationList.Items = processCommand(m.textInput.Value(),m.cfgState)
+
+				m.textInput.SetValue("")
+
+			}else{
+			m.output,m.locationList.Items = processCommand(m.textInput.Value(),m.cfgState)
+			m.textInput.SetValue("")}
 		}
 	
 	}
@@ -70,11 +100,11 @@ func (m btBaseModel) View() string {
 	)
 }
 
-func processCommand(input string,cfgState *ConfigState) string {
+func processCommand(input string,cfgState *ConfigState) (string,[]string) {
 	input = strings.TrimSpace(input)	
 	fmt.Printf("Input given %s ", input )
-	res := repl_input(cfgState, input)
-	return res
+	res,lis := repl_input(cfgState, input)
+	return res,lis
 
 
 	// switch input {
