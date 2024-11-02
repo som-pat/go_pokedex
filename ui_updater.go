@@ -2,56 +2,74 @@ package main
 
 import (
 	"fmt"
-	"strings"
-    "os"
+	"os"
 	"os/exec"
+	"strings"
+	"runtime"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-
 )
 
-type btBaseModel struct{
-    textInput 		textinput.Model
-    output    		string
-	cfgState  		*ConfigState
-	locationList	*Paginatedlisting
-	PokemonList		*Paginatedlisting
-	showLoc			bool
-	showPoke		bool
+type btBaseModel struct {
+	textInput    textinput.Model
+	output       string
+	cfgState     *ConfigState
+	locationList *Paginatedlisting
+	PokemonList  *Paginatedlisting
+	showLoc		 bool
+	showPoke	 bool
 }
 
-type Paginatedlisting struct{
-	Items 		[]string
-	count 		int
-	selectIndex int
+type Paginatedlisting struct {
+	Items        []string
+	count        int
+	selectedIndex int
 }
+
 
 func clearScreen() {
-	cmd := exec.Command("clear") // Use "cls" for Windows
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "cls")
+	default: 
+		cmd = exec.Command("clear")
+	}
+
 	cmd.Stdout = os.Stdout
 	_ = cmd.Run()
 }
 
-func takeInput(cfgState *ConfigState) btBaseModel{
+func takeInput(cfgState *ConfigState) btBaseModel {
 	ti := textinput.New()
 	// ti.Placeholder = "pokedex > "
 	ti.Focus()
 	ti.CharLimit = 100
 	ti.Width = 40
 	return btBaseModel{
-		textInput: ti,
-		output:    "Welcome to PokeCLI!\nType 'explore' to search for Pokémon, 'catch' to catch one, or 'quit' to exit.",
-		cfgState: cfgState,
-		locationList: &Paginatedlisting{},
-		PokemonList: &Paginatedlisting{},
-		showLoc: false,
-		showPoke: false,
+		textInput:    ti,
+		output:       "Welcome to PokeCLI!\nType 'explore' to search for Pokémon, 'catch' to catch one, or 'quit' to exit.",
+		cfgState:     cfgState,
+		locationList: InitPaginatedListing(20),
+		PokemonList:  InitPaginatedListing(40),
+		showLoc: 	  false,
+		showPoke: 	  false,
+	}
+}
+
+func InitPaginatedListing(capmap int) *Paginatedlisting {
+	return &Paginatedlisting{
+		Items:        make([]string, 0, capmap),
+		count:        0,
+		selectedIndex: 0,
 	}
 }
 
 func (m btBaseModel) Init() tea.Cmd {
-    clearScreen()
+	clearScreen()
 	return textinput.Blink
 }
 
@@ -63,61 +81,140 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "up":
+			if strings.HasPrefix(m.textInput.Value(), "explore") {
+				if m.locationList.count == 0 {
+					m.output = "Execute map first"
+					m.textInput.SetValue("")
+				}else if m.showLoc && m.locationList.count == 0{
+					m.output = "No more regions"
+					m.textInput.SetValue("")
+				}else{
+					if m.locationList.selectedIndex>0{
+						m.locationList.selectedIndex --
+					}else{
+						m.locationList.selectedIndex = m.locationList.count -1
+					}
+				}
+				fmt.Print(m.locationList.selectedIndex,m.showLoc)
+				selLoc := m.locationList.Items[m.locationList.selectedIndex]
+				m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
+				
+			} else if strings.HasPrefix(m.textInput.Value(), "catch") {
+				if m.PokemonList.count == 0 {
+					m.output = "Selct a region to explore first"
+					m.textInput.SetValue("")
+				}else if m.showPoke && m.PokemonList.count == 0{
+					m.output = "No Pokemons in this regions"
+					m.textInput.SetValue("")
+				}else{
+					if m.PokemonList.selectedIndex > 0{
+						m.PokemonList.selectedIndex --
+					}else{
+						m.PokemonList.selectedIndex = m.PokemonList.count -1
+					}
+				}
+				fmt.Printf("Not gonna catch'em all,%d",m.PokemonList.selectedIndex)
+				selPok := m.PokemonList.Items[m.PokemonList.selectedIndex]
+				m.textInput.SetValue(fmt.Sprintf("catch %s",selPok))
+			}
+		case "down":
+			if strings.HasPrefix(m.textInput.Value(), "explore") {
+				if m.locationList.count == 0 {
+					m.output = "Execute map first"
+					m.textInput.SetValue("")
+				}else if m.showLoc && m.locationList.count == 0{
+					m.output = "No more regions"
+					m.textInput.SetValue("")
+				}else{
+					if m.locationList.selectedIndex < m.locationList.count -1{
+						m.locationList.selectedIndex ++
+					}else{
+						m.locationList.selectedIndex = 0
+					}
+				}
+				fmt.Print(m.locationList.selectedIndex,m.showLoc)
+				selLoc := m.locationList.Items[m.locationList.selectedIndex]
+				m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
+				
+			} else if strings.HasPrefix(m.textInput.Value(), "catch") {
+				if m.PokemonList.count == 0 {
+					m.output = "Selct a region to explore first"
+					m.textInput.SetValue("")
+				}else if m.showPoke && m.PokemonList.count == 0{
+					m.output = "No Pokemons in this regions"
+					m.textInput.SetValue("")
+				} else{
+					if m.PokemonList.selectedIndex < m.PokemonList.count -1{
+						m.PokemonList.selectedIndex ++
+					}else{
+						m.PokemonList.selectedIndex = 0 
+					}
+				}
+
+				fmt.Printf("Not gonna catch'em all,%d",m.PokemonList.selectedIndex)
+				selPok := m.PokemonList.Items[m.PokemonList.selectedIndex]
+				m.textInput.SetValue(fmt.Sprintf("catch %s",selPok))
+				
+			}
 		case "enter":
-			if strings.HasPrefix(m.textInput.Value(),"explore"){
-				m.output,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
-				
+			m.showLoc = false
+			m.showPoke = false
+			if strings.HasPrefix(m.textInput.Value(), "explore") {				
+				m.output, m.PokemonList.Items = processCommand(m.textInput.Value(), m.cfgState)
+				m.PokemonList.count = len(m.PokemonList.Items)
+				m.showPoke =true
+				m.showLoc = false
 				m.textInput.SetValue("")
-
-			} else if strings.HasPrefix(m.textInput.Value(), "catch"){
-				m.output,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
-				
+			} else {
+				m.output, m.locationList.Items = processCommand(m.textInput.Value(), m.cfgState)
+				m.locationList.count = len(m.locationList.Items)
+				m.showPoke =true
+				m.showLoc = false
 				m.textInput.SetValue("")
-
-			} else if strings.Contains(m.textInput.Value(),"map"){
-				m.output,m.locationList.Items = processCommand(m.textInput.Value(),m.cfgState)
-
-				m.textInput.SetValue("")
-
-			}else{
-			m.output,m.locationList.Items = processCommand(m.textInput.Value(),m.cfgState)
-			m.textInput.SetValue("")}
+			}
 		}
-	
+
 	}
 
-	 
 	m.textInput, cmd = m.textInput.Update(msg)
 	return m, cmd
 }
 
 func (m btBaseModel) View() string {
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("35"))
+	// var lisView string
+	// if m.showLoc && m.locationList.count>0{ 
+	// 	lisView = "Available Regions:\n"
+	// 	for i, item := range m.locationList.Items{
+	// 		cursor:= " "
+	// 		if i==m.locationList.selectedIndex{
+	// 			cursor = ">"
+	// 		}
+	// 		lisView += fmt.Sprintf("%s%s\n", cursor, item)
+	// 	}
+	
+	// }else if m.showPoke && m.PokemonList.count > 0 {
+	// 	lisView = "Pokemons Found:\n"
+	// 	for i, item := range m.PokemonList.Items{
+	// 		cursor := " "
+	// 		if i == m.PokemonList.selectedIndex{
+	// 			cursor = ">"
+	// 		}
+	// 		lisView +=fmt.Sprintf("%s%s\n", cursor, item)			
+	// 	}		
+	// }
 	return fmt.Sprintf(
 		"%s\n\nPokedex%s\n\n%s\n",
-		m.output,
+		headerStyle.Render(m.output),
 		m.textInput.View(),
-		"[Press 'q' to quit]",
+		"[Press 'q' to quit, 'up'/'down' to navigate, 'enter' to confirm]",
 	)
 }
 
-func processCommand(input string,cfgState *ConfigState) (string,[]string) {
-	input = strings.TrimSpace(input)	
-	fmt.Printf("Input given %s ", input )
-	res,lis := repl_input(cfgState, input)
-	return res,lis
-
-
-	// switch input {
-	// case "explore":
-	// 	return "Exploring... You find a wild Pokémon!"
-	// case "catch":
-	// 	return "Attempting to catch Pokémon... Success!"
-	// case "help":
-	// 	return "Available commands: explore, catch, help, quit"
-	// case "quit":
-	// 	return "Goodbye!"
-	// default:
-	// 	return "Unknown command. Type 'help' for available commands."
-	// }
+func processCommand(input string, cfgState *ConfigState) (string, []string) {
+	input = strings.TrimSpace(input)
+	fmt.Printf("Input given %s ", input)
+	res, lis := repl_input(cfgState, input)
+	return res, lis
 }
-
