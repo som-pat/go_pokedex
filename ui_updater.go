@@ -86,9 +86,6 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.locationList.count == 0 {
 					m.output = "Execute map first"
 					m.textInput.SetValue("")
-				}else if m.showLoc && m.locationList.count == 0{
-					m.output = "No more regions"
-					m.textInput.SetValue("")
 				}else{
 					if m.locationList.selectedIndex>0{
 						m.locationList.selectedIndex --
@@ -97,15 +94,13 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				fmt.Print(m.locationList.selectedIndex,m.showLoc)
-				selLoc := m.locationList.Items[m.locationList.selectedIndex]
-				m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
-				
+				if m.showLoc{
+					selLoc := m.locationList.Items[m.locationList.selectedIndex]
+					m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
+				}
 			} else if strings.HasPrefix(m.textInput.Value(), "catch") {
 				if m.PokemonList.count == 0 {
 					m.output = "Selct a region to explore first"
-					m.textInput.SetValue("")
-				}else if m.showPoke && m.PokemonList.count == 0{
-					m.output = "No Pokemons in this regions"
 					m.textInput.SetValue("")
 				}else{
 					if m.PokemonList.selectedIndex > 0{
@@ -115,16 +110,15 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				fmt.Printf("Not gonna catch'em all,%d",m.PokemonList.selectedIndex)
-				selPok := m.PokemonList.Items[m.PokemonList.selectedIndex]
-				m.textInput.SetValue(fmt.Sprintf("catch %s",selPok))
+				if m.showPoke{
+					selPok := m.PokemonList.Items[m.PokemonList.selectedIndex]
+					m.textInput.SetValue(fmt.Sprintf("catch %s",selPok))
+				}
 			}
 		case "down":
 			if strings.HasPrefix(m.textInput.Value(), "explore") {
 				if m.locationList.count == 0 {
 					m.output = "Execute map first"
-					m.textInput.SetValue("")
-				}else if m.showLoc && m.locationList.count == 0{
-					m.output = "No more regions"
 					m.textInput.SetValue("")
 				}else{
 					if m.locationList.selectedIndex < m.locationList.count -1{
@@ -134,15 +128,13 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				fmt.Print(m.locationList.selectedIndex,m.showLoc)
-				selLoc := m.locationList.Items[m.locationList.selectedIndex]
-				m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
-				
+				if m.showLoc{
+					selLoc := m.locationList.Items[m.locationList.selectedIndex]
+					m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
+				}
 			} else if strings.HasPrefix(m.textInput.Value(), "catch") {
 				if m.PokemonList.count == 0 {
 					m.output = "Selct a region to explore first"
-					m.textInput.SetValue("")
-				}else if m.showPoke && m.PokemonList.count == 0{
-					m.output = "No Pokemons in this regions"
 					m.textInput.SetValue("")
 				} else{
 					if m.PokemonList.selectedIndex < m.PokemonList.count -1{
@@ -153,13 +145,12 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				fmt.Printf("Not gonna catch'em all,%d",m.PokemonList.selectedIndex)
+				if m.showPoke{
 				selPok := m.PokemonList.Items[m.PokemonList.selectedIndex]
 				m.textInput.SetValue(fmt.Sprintf("catch %s",selPok))
-				
+				}
 			}
 		case "enter":
-			m.showLoc = false
-			m.showPoke = false
 			if strings.HasPrefix(m.textInput.Value(), "explore") {				
 				m.output, m.PokemonList.Items = processCommand(m.textInput.Value(), m.cfgState)
 				m.PokemonList.count = len(m.PokemonList.Items)
@@ -169,8 +160,8 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.output, m.locationList.Items = processCommand(m.textInput.Value(), m.cfgState)
 				m.locationList.count = len(m.locationList.Items)
-				m.showPoke =true
-				m.showLoc = false
+				m.showPoke =false
+				m.showLoc = true
 				m.textInput.SetValue("")
 			}
 		}
