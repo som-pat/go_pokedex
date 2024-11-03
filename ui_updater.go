@@ -82,7 +82,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "up":
-			if strings.HasPrefix(m.textInput.Value(), "explore") {
+			if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(),"inspect"){
 				if m.locationList.count == 0 {
 					m.output = "Execute map first"
 					m.textInput.SetValue("")
@@ -94,9 +94,12 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				fmt.Print(m.locationList.selectedIndex,m.showLoc)
-				if m.showLoc{
+				if m.showLoc && strings.HasPrefix(m.textInput.Value(), "explore") {
 					selLoc := m.locationList.Items[m.locationList.selectedIndex]
 					m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
+				}else if m.showLoc && strings.HasPrefix(m.textInput.Value(),"inspect"){
+					selLoc := m.locationList.Items[m.locationList.selectedIndex]
+					m.textInput.SetValue(fmt.Sprintf("inspect %s",selLoc))
 				}
 			} else if strings.HasPrefix(m.textInput.Value(), "catch") {
 				if m.PokemonList.count == 0 {
@@ -116,7 +119,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "down":
-			if strings.HasPrefix(m.textInput.Value(), "explore") {
+			if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(),"inspect"){
 				if m.locationList.count == 0 {
 					m.output = "Execute map first"
 					m.textInput.SetValue("")
@@ -128,9 +131,12 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				fmt.Print(m.locationList.selectedIndex,m.showLoc)
-				if m.showLoc{
+				if m.showLoc && strings.HasPrefix(m.textInput.Value(), "explore") {
 					selLoc := m.locationList.Items[m.locationList.selectedIndex]
 					m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
+				}else if m.showLoc && strings.HasPrefix(m.textInput.Value(),"inspect"){
+					selLoc := m.locationList.Items[m.locationList.selectedIndex]
+					m.textInput.SetValue(fmt.Sprintf("inspect %s",selLoc))
 				}
 			} else if strings.HasPrefix(m.textInput.Value(), "catch") {
 				if m.PokemonList.count == 0 {
@@ -149,15 +155,15 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				selPok := m.PokemonList.Items[m.PokemonList.selectedIndex]
 				m.textInput.SetValue(fmt.Sprintf("catch %s",selPok))
 				}
-			}
+			} 
 		case "enter":
 			if strings.HasPrefix(m.textInput.Value(), "explore") {				
 				m.output, m.PokemonList.Items = processCommand(m.textInput.Value(), m.cfgState)
 				m.PokemonList.count = len(m.PokemonList.Items)
 				m.showPoke =true
 				m.showLoc = false
-				m.textInput.SetValue("")
-			} else {
+				m.textInput.SetValue("") 
+			}else {
 				m.output, m.locationList.Items = processCommand(m.textInput.Value(), m.cfgState)
 				m.locationList.count = len(m.locationList.Items)
 				m.showPoke =false
