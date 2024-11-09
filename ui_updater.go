@@ -157,6 +157,8 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			} 
 		case "enter":
+			m.locationList.selectedIndex = 0
+			m.PokemonList.selectedIndex = 0
 			if strings.HasPrefix(m.textInput.Value(), "explore") {				
 				m.output, m.PokemonList.Items = processCommand(m.textInput.Value(), m.cfgState)
 				m.PokemonList.count = len(m.PokemonList.Items)

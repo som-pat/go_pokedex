@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"bytes"
+	"os/exec"
 )
 
 
@@ -18,6 +20,12 @@ func call_pokeInspect(cfg_state *ConfigState, args ...string) (string,[]string,e
 		return "",nil,fmt.Errorf("pokemon %s not caught", poke_name)
 	}
 	var pokedetails strings.Builder
+	ascii_img,err := getPokemonAscii(pokemon.Sprites.FrontDefault)
+	if err!= nil{
+		pokedetails.WriteString(" [Image Unavailable]\n")
+	}
+	pokedetails.WriteString(ascii_img +"\n")
+
 	pokedetails.WriteString(fmt.Sprintf("Name: %s \n", pokemon.Name))
 	pokedetails.WriteString(fmt.Sprintf("Height: %d \n", pokemon.Height))
 	pokedetails.WriteString(fmt.Sprintf("Weight:%d \n", pokemon.Weight))
@@ -32,4 +40,18 @@ func call_pokeInspect(cfg_state *ConfigState, args ...string) (string,[]string,e
 
 	
 	return pokedetails.String(),nil,nil
+}
+
+func getPokemonAscii(imageURL string) (string, error){
+	cmd := exec.Command("./ascii/bin/python3","ascii_py/new_ascii.py", imageURL)
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err!=nil{
+		return "", err
+	}
+
+	asciiImg := out.String()
+	return asciiImg, nil
 }

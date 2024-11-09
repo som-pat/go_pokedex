@@ -1,9 +1,10 @@
 package main
 
-import "fmt"
-import "errors"
-import "strings"
-
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
 func call_pokedex(cfg_state *ConfigState, args ...string) (string,[]string,error){
 	if len(cfg_state.pokemonCaught) == 0{
@@ -12,9 +13,12 @@ func call_pokedex(cfg_state *ConfigState, args ...string) (string,[]string,error
 	var caught_pokemon strings.Builder
 	var cp []string
 	for _, poke := range cfg_state.pokemonCaught{
-		caught_pokemon.WriteString(fmt.Sprintf(" - %s \n", poke.Name))
+		caught_pokemon.WriteString(fmt.Sprintf(" - %s \t", poke.Name))
 		cp = append(cp, poke.Name)
+		
 	}
 	
 	return caught_pokemon.String(),cp,nil
 }
+
+
