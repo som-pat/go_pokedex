@@ -1,9 +1,9 @@
 package main
 
 import (
-	"time"
+    "time"
 	"github.com/som-pat/poke_dex/internal/pokeapi"
-
+	tea "github.com/charmbracelet/bubbletea"
 
 )
 
@@ -13,7 +13,6 @@ type ConfigState struct{
 	prevLocURL *string
 	pokemonCaught map[string] pokeapi.PokemonDetails
 }
-
 
 func main()	{
 
@@ -27,3 +26,13 @@ func main()	{
 	// repl_input(&cfg_state)
 	
 }
+
+
+func Run(cfgState *ConfigState) {
+    p:= tea.NewProgram(takeInput(cfgState))
+    if _,err := p.Run(); err != nil {
+        panic(err)
+    }
+}
+
+
