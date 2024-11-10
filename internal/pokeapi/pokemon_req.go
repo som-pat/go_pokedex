@@ -12,17 +12,17 @@ func (c *Client) InvokePokeCatch(Poke_name string) (PokemonDetails,error){
 	end_point := "/pokemon/" + Poke_name
 	full_url := baseURL + end_point
 
-	// check cache
-	cache_data, ok := c.cache.Get(full_url)
-	if ok{
-		fmt.Println("Cache hit, looting booty")
-		poke_details := PokemonDetails{}
-		err := json.Unmarshal(cache_data, &poke_details)		
-		if err != nil {
-			return PokemonDetails{}, err
-		}
-		return poke_details, nil
-	}
+	// // check cache
+	// cache_data, ok := c.cache.Get(full_url)
+	// if ok{
+	// 	fmt.Println("Cache hit, looting booty")
+	// 	poke_details := PokemonDetails{}
+	// 	err := json.Unmarshal(cache_data, &poke_details)		
+	// 	if err != nil {
+	// 		return PokemonDetails{}, err
+	// 	}
+	// 	return poke_details, nil
+	// }
 
 	req, err := http.NewRequest("GET", full_url, nil)
 	if err != nil {
@@ -52,7 +52,7 @@ func (c *Client) InvokePokeCatch(Poke_name string) (PokemonDetails,error){
 		return PokemonDetails{}, err
 	}
 
-	c.cache.Add(full_url, data)
+	// c.cache.Add(full_url, data)
 	return poke_details, nil
 
 

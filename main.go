@@ -9,9 +9,10 @@ import (
 
 type ConfigState struct{
 	pokeapiClient pokeapi.Client
-	nextLocURL *string
-	prevLocURL *string
+	nextLocURL 	  *string
+	prevLocURL	  *string
 	pokemonCaught map[string] pokeapi.PokemonDetails
+	ItemsHeld 	  map[string] pokeapi.ItemDescription
 }
 
 func main()	{
@@ -19,6 +20,7 @@ func main()	{
 	cfg_state := ConfigState{
 		pokeapiClient: pokeapi.NewClient(time.Hour),
 		pokemonCaught: make(map[string]pokeapi.PokemonDetails),
+		ItemsHeld: make(map[string]pokeapi.ItemDescription),
 	}
 
 	Run(&cfg_state)
@@ -26,7 +28,6 @@ func main()	{
 	// repl_input(&cfg_state)
 	
 }
-
 
 func Run(cfgState *ConfigState) {
     p:= tea.NewProgram(takeInput(cfgState))
