@@ -8,11 +8,12 @@ import (
 )
 
 type ConfigState struct{
-	pokeapiClient pokeapi.Client
-	nextLocURL 	  *string
-	prevLocURL	  *string
-	pokemonCaught map[string] pokeapi.PokemonDetails
-	ItemsHeld 	  map[string] pokeapi.ItemDescription
+	pokeapiClient 		 pokeapi.Client
+	nextLocURL 	  		 *string
+	prevLocURL	  		 *string
+	pokemonCaught 		 map[string] pokeapi.PokemonDetails
+	ItemsHeld 	  		 map[string] pokeapi.ItemDescription
+	CurrentEncounterList *[]string
 }
 
 func main()	{
@@ -21,6 +22,7 @@ func main()	{
 		pokeapiClient: pokeapi.NewClient(time.Hour),
 		pokemonCaught: make(map[string]pokeapi.PokemonDetails),
 		ItemsHeld: make(map[string]pokeapi.ItemDescription),
+		CurrentEncounterList: &[]string{},
 	}
 
 	Run(&cfg_state)

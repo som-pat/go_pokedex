@@ -37,12 +37,18 @@ func call_explore(cfg_state *ConfigState, args ...string) (string,[]string,error
 	for _, iname := range(itemName){
 		lisexp_reg = append(lisexp_reg, iname)
 		explore_reg.WriteString(fmt.Sprintf("- %s\n",iname))
-
 	}
 
 	if len(lisexp_reg) == 0{
 		explore_reg.WriteString(fmt.Sprintf("No Pokemons or Items found in %s:\n", location.Name))
 		return explore_reg.String(),nil,nil
 	}
+	//Update the encounter list
+	if cfg_state.CurrentEncounterList!=nil{
+		*cfg_state.CurrentEncounterList =lisexp_reg
+	}else{
+		cfg_state.CurrentEncounterList = &lisexp_reg
+	}
+	
 	return explore_reg.String(),lisexp_reg,nil
 }

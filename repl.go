@@ -18,11 +18,7 @@ func get_command() map[string] cliCommand{
 			description: "Displays available commands",
 			callback:    call_help,
 		},
-		// "exit": {
-		// 	name:        "exit",
-		// 	description: "Exit the Pokedex",
-		// 	callback:    call_exit,
-		// },
+
 		"map":{
 			name:		 "map",
 			description: "Display next 20 loactions",
@@ -39,6 +35,11 @@ func get_command() map[string] cliCommand{
 			name:		 "explore 'location_area' ",
 			description: "Display Pokemons in chosen location",
 			callback:    call_explore,
+		},
+		"scout":{
+			name:		 "scout 'pokemon/item' ",
+			description: "Search for given Pokemons/items in chosen location",
+			callback:    call_search,
 		},
 
 		"catch":{
@@ -82,7 +83,7 @@ func repl_input(cfg_state *ConfigState, input string) (string,[]string){
 		return "Unknown command. Type 'help' for a list of available commands.",nil
 	}
 
-	res,lis,err :=route_com.callback(cfg_state, args...)
+	res, lis, err :=route_com.callback(cfg_state, args...)
 	if err != nil {
 		return fmt.Sprintf("Error: %v",err),nil
 	}
