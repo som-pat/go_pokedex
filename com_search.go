@@ -17,9 +17,13 @@ func call_search(cfg_state *ConfigState, args ...string) (string,[]string,error)
 	toSearch := args[0]
 	toSearchok := false
 	for _, name := range *cfg_state.CurrentEncounterList{
-		if name == toSearch{ toSearchok = true}
+		if name == toSearch{ 
+			toSearchok = true
+			break
+		}
 	}
 	var encounter strings.Builder
+	var encolist []string
 	if !toSearchok{
 		return "", nil, fmt.Errorf("%s not in this region",toSearch)
 	}
@@ -54,7 +58,7 @@ func call_search(cfg_state *ConfigState, args ...string) (string,[]string,error)
 		normalizedCaptureRate :=  float64(pokeSpecies.CaptureRate) /255.0
 		adjustedWeight := baseWeight * (1 + normalizedCaptureRate)
 
-		weightMap[name] = adjustedWeight
+		weightMap[pokeSpecies.Name] = adjustedWeight
 		totalWeight += adjustedWeight
 	}
 
@@ -64,12 +68,19 @@ func call_search(cfg_state *ConfigState, args ...string) (string,[]string,error)
 	for i:=0; i<maxencounter;i++{
 		threshold := (rand.Float64() * totalWeight)
 		cumulativeWeight := 0.0	
+		keys := make([]string, 0, len(weightMap))
+		for name := range weightMap {
+			keys = append(keys, name)
+		}
+		rand.Shuffle(len(keys), func(i, j int) { keys[i], keys[j] = keys[j], keys[i] })
 		
-		for name,weight := range weightMap{
+		for _,name := range keys{
 			//cumulative probability thresh
-			cumulativeWeight += weight
-			if cumulativeWeight > threshold && !encountered[name]{
-				encounter.WriteString(fmt.Sprintf(" -%s\n", name))
+			weight := weightMap[name]
+			cumulativeWeight += weight*2
+			if cumulativeWeight >= threshold && !encountered[name]{
+				encounter.WriteString(fmt.Sprintf(" - %s\n", name))
+				encolist = append(encolist, name)
 				encountered[name] = true
 				break
 			}
@@ -80,5 +91,5 @@ func call_search(cfg_state *ConfigState, args ...string) (string,[]string,error)
 	}
 	
 
-	return encounter.String(), nil,nil
+	return encounter.String(), encolist,nil
 }

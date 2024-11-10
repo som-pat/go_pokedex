@@ -14,7 +14,9 @@ func call_catch(cfg_state *ConfigState, args ...string) (string,[]string,error){
 	toScour := args[0]	
 
 	pokemon, err := cfg_state.pokeapiClient.InvokePokeCatch(toScour)
-	if err == nil{	
+	if err != nil{
+		return "", nil, errors.New("no such pokemon found")
+	}else{	
 		var catchchance strings.Builder
 		// three chances to catch after that poke will escape
 		const chances = 60
@@ -37,16 +39,6 @@ func call_catch(cfg_state *ConfigState, args ...string) (string,[]string,error){
 		}
 		return catchchance.String(),nil,nil
 	}
-	itemdes, itemErr := cfg_state.pokeapiClient.ItemFetch(toScour)
-	if itemErr != nil{
-		return "", nil, errors.New("no such item or pokemon found")
-	}
-	var itemScoured strings.Builder
-	cfg_state.ItemsHeld[itemdes.Name] = itemdes
-	itemScoured.WriteString(fmt.Sprintf("Found %s \n",itemdes.Name))
-	itemScoured.WriteString(fmt.Sprintf("len of %d \n",len(cfg_state.ItemsHeld)))
-	return itemScoured.String(),nil, nil
-
 }
 
 

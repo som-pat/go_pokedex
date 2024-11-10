@@ -159,7 +159,8 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			m.locationList.selectedIndex = 0
 			m.PokemonList.selectedIndex = 0
-			if strings.HasPrefix(m.textInput.Value(), "explore") {				
+			m.output =""
+			if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(), "scout") {				
 				m.output, m.PokemonList.Items = processCommand(m.textInput.Value(), m.cfgState)
 				m.PokemonList.count = len(m.PokemonList.Items)
 				m.showPoke =true
@@ -182,27 +183,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m btBaseModel) View() string {
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("35"))
-	// var lisView string
-	// if m.showLoc && m.locationList.count>0{ 
-	// 	lisView = "Available Regions:\n"
-	// 	for i, item := range m.locationList.Items{
-	// 		cursor:= " "
-	// 		if i==m.locationList.selectedIndex{
-	// 			cursor = ">"
-	// 		}
-	// 		lisView += fmt.Sprintf("%s%s\n", cursor, item)
-	// 	}
-	
-	// }else if m.showPoke && m.PokemonList.count > 0 {
-	// 	lisView = "Pokemons Found:\n"
-	// 	for i, item := range m.PokemonList.Items{
-	// 		cursor := " "
-	// 		if i == m.PokemonList.selectedIndex{
-	// 			cursor = ">"
-	// 		}
-	// 		lisView +=fmt.Sprintf("%s%s\n", cursor, item)			
-	// 	}		
-	// }
+
 	return fmt.Sprintf(
 		"%s\n\nPokedex%s\n\n%s\n",
 		headerStyle.Render(m.output),
