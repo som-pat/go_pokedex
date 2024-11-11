@@ -1,12 +1,14 @@
-package main
+package replinternal
 
 import (
 	"fmt"
 	"errors"
 	"strings"
+	"github.com/som-pat/poke_dex/internal/config"
 )
-func call_map(cfg_state *ConfigState, args ...string) (string,[]string,error){
-	resp, err := cfg_state.pokeapiClient.InvokeLocs(cfg_state.nextLocURL)
+
+func call_map(cfg_state *config.ConfigState, args ...string) (string,[]string,error){
+	resp, err := cfg_state.PokeapiClient.InvokeLocs(cfg_state.NextLocURL)
 	if err!= nil{
 		return "",nil,errors.New("next page does not exist")
 	}
@@ -17,18 +19,18 @@ func call_map(cfg_state *ConfigState, args ...string) (string,[]string,error){
 		lislocs = append(lislocs,area.Name)
 		displayloc.WriteString(fmt.Sprintf("- %s\n", area.Name))
 	}
-	cfg_state.nextLocURL = resp.Next
-	cfg_state.prevLocURL = resp.Previous
+	cfg_state.NextLocURL = resp.Next
+	cfg_state.PrevLocURL = resp.Previous
 	return displayloc.String(),lislocs,nil
 }
 
 
 
-func call_mapb(cfg_state *ConfigState, args ...string) (string,[]string,error){	
-	if cfg_state.prevLocURL == nil{
+func call_mapb(cfg_state *config.ConfigState, args ...string) (string,[]string,error){	
+	if cfg_state.PrevLocURL == nil{
 		return "",nil,errors.New("you're on the 1st page")
 	}
-	resp, err := cfg_state.pokeapiClient.InvokeLocs(cfg_state.prevLocURL)
+	resp, err := cfg_state.PokeapiClient.InvokeLocs(cfg_state.PrevLocURL)
 	if err!= nil{
 		return "",nil,err
 	}
@@ -39,8 +41,8 @@ func call_mapb(cfg_state *ConfigState, args ...string) (string,[]string,error){
 		lislocs = append(lislocs,area.Name)
 		displayprevloc.WriteString(fmt.Sprintf("- %s\n", area.Name))
 	}
-	cfg_state.nextLocURL = resp.Next
-	cfg_state.prevLocURL = resp.Previous
+	cfg_state.NextLocURL = resp.Next
+	cfg_state.PrevLocURL = resp.Previous
 
 	return displayprevloc.String(),lislocs,nil
 }

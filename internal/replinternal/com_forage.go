@@ -1,18 +1,20 @@
-package main
+package replinternal
 
 import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/som-pat/poke_dex/internal/config"
 )
 
 
-func call_forage(cfg_state *ConfigState, args ...string) (string,[]string,error){
+func call_forage(cfg_state *config.ConfigState, args ...string) (string,[]string,error){
 	if len(args) != 1{
 		return "",nil,errors.New("no item name provided")
 	}
 	toForage := args[0]
-	itemdes, itemErr := cfg_state.pokeapiClient.ItemFetch(toForage)
+	itemdes, itemErr := cfg_state.PokeapiClient.ItemFetch(toForage)
 	if itemErr != nil{
 		return "", nil, errors.New("no such item found")
 	}

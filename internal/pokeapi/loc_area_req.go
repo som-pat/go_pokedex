@@ -67,7 +67,6 @@ func (c *Client) InvokePokeLocs(LocatioName string) (PokeinLoc, error){
 	// check cache
 	cache_data, ok := c.cache.Get(full_url)
 	if ok{
-		fmt.Println("Cache hit, looting booty")
 		poke_loc_resp := PokeinLoc{}
 		err := json.Unmarshal(cache_data, &poke_loc_resp)		
 		if err != nil {

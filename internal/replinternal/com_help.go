@@ -1,11 +1,12 @@
-package main
+package replinternal
 
 import (
 	"fmt"
 	"strings"
+	"github.com/som-pat/poke_dex/internal/config"
 )
 
-func call_help(cfg_state *ConfigState, args ...string) (string,[]string,error){
+func call_help(cfg_state *config.ConfigState, args ...string) (string,[]string,error){
 	var result strings.Builder
 	result.WriteString("Available Commands:\n\n")
 	avail_coms := get_command()

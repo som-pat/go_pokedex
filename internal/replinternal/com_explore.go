@@ -1,26 +1,28 @@
-package main
+package replinternal
 
 import (
 	"errors"
 	"fmt"
 	"strings"
 	"math/rand"
+
+	"github.com/som-pat/poke_dex/internal/config"
 )
 
-func call_explore(cfg_state *ConfigState, args ...string) (string,[]string,error) {
+func call_explore(cfg_state *config.ConfigState, args ...string) (string,[]string,error) {
 	if len(args) != 1 {
 		return "",nil,errors.New("no Region provided")
 	}
 	loc_name := args[0]
 
-	location, err := cfg_state.pokeapiClient.InvokePokeLocs(loc_name)
+	location, err := cfg_state.PokeapiClient.InvokePokeLocs(loc_name)
 	if err != nil {
 		return "",nil,err
 	}
 
 	const NumItems = 8
 	var Itemsadd = rand.Intn(NumItems)
-	itemName, err := cfg_state.pokeapiClient.ItemRandomizer(Itemsadd)
+	itemName, err := cfg_state.PokeapiClient.ItemRandomizer(Itemsadd)
 	if err != nil {
 		return "",nil,err
 	}

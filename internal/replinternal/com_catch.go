@@ -1,19 +1,20 @@
-package main
+package replinternal
 
 import (
 	"errors"
 	"fmt"
 	"math/rand"
 	"strings"
+	"github.com/som-pat/poke_dex/internal/config"
 )
 
-func call_catch(cfg_state *ConfigState, args ...string) (string,[]string,error){
+func call_catch(cfg_state *config.ConfigState, args ...string) (string,[]string,error){
 	if len(args) != 1{
 		return "",nil,errors.New("no pokemon or item name provided")
 	}
 	toScour := args[0]	
 
-	pokemon, err := cfg_state.pokeapiClient.InvokePokeCatch(toScour)
+	pokemon, err := cfg_state.PokeapiClient.InvokePokeCatch(toScour)
 	if err != nil{
 		return "", nil, errors.New("no such pokemon found")
 	}else{	
@@ -27,11 +28,11 @@ func call_catch(cfg_state *ConfigState, args ...string) (string,[]string,error){
 				catchchance.WriteString(fmt.Sprintf("%s not caught \n", pokemon.Name))
 			}else{
 				catchchance.WriteString(fmt.Sprintf("%s caught \n", pokemon.Name))
-				cfg_state.pokemonCaught[pokemon.Name] = pokemon
+				cfg_state.PokemonCaught[pokemon.Name] = pokemon
 				break
 			}
 		}
-		pokemon, ok := cfg_state.pokemonCaught[pokemon.Name]
+		pokemon, ok := cfg_state.PokemonCaught[pokemon.Name]
 		if !ok{
 			catchchance.WriteString("\n")
 			catchchance.WriteString(fmt.Sprintf("Unable to catch %s, better luck next time \n", pokemon.Name))

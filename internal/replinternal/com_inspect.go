@@ -1,4 +1,4 @@
-package main
+package replinternal
 
 import (
 	"errors"
@@ -6,15 +6,16 @@ import (
 	"strings"
 
 	"github.com/som-pat/poke_dex/imagegen"
+	"github.com/som-pat/poke_dex/internal/config"
 )
 
-func call_pokeInspect(cfg_state *ConfigState, args ...string) (string, []string, error) {
+func call_pokeInspect(cfg_state *config.ConfigState, args ...string) (string, []string, error) {
 	if len(args) != 1 {
 		return "", nil, errors.New("no pokemon or item name provided")
 	}
 	toInspect := args[0]
 
-	pokemon, ok := cfg_state.pokemonCaught[toInspect]
+	pokemon, ok := cfg_state.PokemonCaught[toInspect]
 	if ok {
 		var pokedetails strings.Builder
 		ascii_img, err := imagegen.AsciiGen(pokemon.Sprites.FrontDefault)

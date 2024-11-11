@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"runtime"
+	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/som-pat/poke_dex/internal/config"
+	"github.com/som-pat/poke_dex/internal/replinternal"
 )
 
 type btBaseModel struct {
 	textInput    textinput.Model
 	output       string
-	cfgState     *ConfigState
+	cfgState     *config.ConfigState
 	locationList *Paginatedlisting
 	PokemonList  *Paginatedlisting
 	showLoc		 bool
@@ -43,9 +45,8 @@ func clearScreen() {
 	_ = cmd.Run()
 }
 
-func takeInput(cfgState *ConfigState) btBaseModel {
+func takeInput(cfgState *config.ConfigState) btBaseModel {
 	ti := textinput.New()
-	// ti.Placeholder = "pokedex > "
 	ti.Focus()
 	ti.CharLimit = 100
 	ti.Width = 40
@@ -204,9 +205,9 @@ func (m btBaseModel) View() string {
 }
 
 
-func processCommand(input string, cfgState *ConfigState) (string, []string) {
+func processCommand(input string, cfgState *config.ConfigState) (string, []string) {
 	input = strings.TrimSpace(input)
 	fmt.Printf("Input given %s ", input)
-	res, lis := repl_input(cfgState, input)
+	res, lis := replinternal.ReplInput(cfgState, input)
 	return res, lis
 }

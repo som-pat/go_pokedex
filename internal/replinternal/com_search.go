@@ -1,13 +1,15 @@
-package main
+package replinternal
 
 import (
 	"errors"
 	"fmt"
 	"math/rand"
 	"strings"
+
+	"github.com/som-pat/poke_dex/internal/config"
 )
 
-func call_search(cfg_state *ConfigState, args ...string) (string,[]string,error){
+func call_search(cfg_state *config.ConfigState, args ...string) (string,[]string,error){
 	if len(args) != 1{
 		return "",nil,errors.New("no pokemon or item name provided")
 	}
@@ -38,7 +40,7 @@ func call_search(cfg_state *ConfigState, args ...string) (string,[]string,error)
 	weightMap := make(map[string]float64)
 
 	for _,name := range *cfg_state.CurrentEncounterList{
-		pokeSpecies, err := cfg_state.pokeapiClient.EncounterPoke(name)
+		pokeSpecies, err := cfg_state.PokeapiClient.EncounterPoke(name)
 		baseWeight := float64(commonWeight)
 		if err !=nil{
 			refactorItem := baseWeight * float64(isItem)

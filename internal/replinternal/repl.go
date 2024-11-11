@@ -1,14 +1,16 @@
-package main
+package replinternal
 
 import (
 	"fmt"
 	"strings"
+	"github.com/som-pat/poke_dex/internal/config"
+
 )
 
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*ConfigState, ...string) (string,[]string,error)
+	callback    func(*config.ConfigState, ...string) (string,[]string,error)
 }
 
 func get_command() map[string] cliCommand{
@@ -69,7 +71,7 @@ func get_command() map[string] cliCommand{
 	}
 }
 
-func repl_input(cfg_state *ConfigState, input string) (string,[]string){
+func ReplInput(cfg_state *config.ConfigState, input string) (string,[]string){
 	new_input := input_clean(input)
 	
 	// Empty commands

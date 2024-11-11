@@ -1,37 +1,29 @@
 package main
 
 import (
-    "time"
-	"github.com/som-pat/poke_dex/internal/pokeapi"
-	tea "github.com/charmbracelet/bubbletea"
+	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/som-pat/poke_dex/internal/config"
+	"github.com/som-pat/poke_dex/internal/pokeapi"
 )
 
-type ConfigState struct{
-	pokeapiClient 		 pokeapi.Client
-	nextLocURL 	  		 *string
-	prevLocURL	  		 *string
-	pokemonCaught 		 map[string] pokeapi.PokemonDetails
-	ItemsHeld 	  		 map[string] pokeapi.ItemDescription
-	CurrentEncounterList *[]string
-}
+
 
 func main()	{
 
-	cfg_state := ConfigState{
-		pokeapiClient: pokeapi.NewClient(time.Hour),
-		pokemonCaught: make(map[string]pokeapi.PokemonDetails),
+	cfg_state := &config.ConfigState{
+		PokeapiClient: pokeapi.NewClient(time.Hour),
+		PokemonCaught: make(map[string]pokeapi.PokemonDetails),
 		ItemsHeld: make(map[string]pokeapi.ItemDescription),
 		CurrentEncounterList: &[]string{},
 	}
 
-	Run(&cfg_state)
-		
-	// repl_input(&cfg_state)
+	Run(cfg_state)
 	
 }
 
-func Run(cfgState *ConfigState) {
+func Run(cfgState *config.ConfigState) {
     p:= tea.NewProgram(takeInput(cfgState))
     if _,err := p.Run(); err != nil {
         panic(err)
