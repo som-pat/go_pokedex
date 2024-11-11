@@ -3,7 +3,7 @@ from PIL import Image
 import requests
 from io import BytesIO
 
-def convert_to_ascii(image_url, new_width=64):
+def convert_to_ascii(image_url, new_width=64,final_width=16):
     # Fetch the image from the URL
     response = requests.get(image_url)
     img = Image.open(BytesIO(response.content))
@@ -50,17 +50,15 @@ def convert_to_ascii(image_url, new_width=64):
         if pixel_count % new_width == 0:
             ascii_str += "\n"
 
-    # Split into lines and remove empty lines or lines with only spaces
     ascii_lines = ascii_str.splitlines()
-    trimmed_ascii_lines = []
-    for line in ascii_lines:
-        # Remove ANSI codes for checking line content
-        visible_content = line.replace("\033[0m", "").strip()
-        # Add line only if it has visible characters
-        if any(char != " " for char in visible_content):
-            trimmed_ascii_lines.append(line)
 
-    return "\n".join(trimmed_ascii_lines)
+    # Downsample the ASCII art to match the final desired width
+    downsample_ratio = max(1, new_width // final_width)
+    downsampled_ascii = "\n".join(
+        line[::downsample_ratio] for line in ascii_lines[::downsample_ratio]
+    )
+
+    return downsampled_ascii
 
 
 if __name__ == "__main__":

@@ -183,14 +183,26 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m btBaseModel) View() string {
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("35"))
+	screenHeight := 41 // Adjust this based on your terminal height if necessary
+
+	// Count lines in the output
+	outputLines := strings.Split(m.output, "\n")
+	outputHeight := len(outputLines)
+
+	// Calculate padding needed to push the prompt to the bottom
+	paddingLines := screenHeight - outputHeight - 5 // Extra space for the prompt and instructions
+
+	padding := strings.Repeat("\n", paddingLines)
 
 	return fmt.Sprintf(
-		"%s\n\nPokedex%s\n\n%s\n",
+		"%s\n%s\n%s %s\n\n%s\n",
 		headerStyle.Render(m.output),
-		m.textInput.View(),
+		padding,
+		"Pokedex", m.textInput.View(),
 		"[Press 'q' to quit, 'up'/'down' to navigate, 'enter' to confirm]",
 	)
 }
+
 
 func processCommand(input string, cfgState *ConfigState) (string, []string) {
 	input = strings.TrimSpace(input)
