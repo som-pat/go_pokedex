@@ -16,7 +16,7 @@ import (
 
 
 
-func AsciiGen(imageURL string) (string, error) {
+func AsciiGen(imageURL string,reqwidth int) (string, error) {
 	resp, err := http.Get(imageURL)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return "[Image Unavailable]", fmt.Errorf("failed to fetch image: %v", err)
@@ -52,7 +52,7 @@ func AsciiGen(imageURL string) (string, error) {
 
 	// Convert to ASCII and downscale to smaller size (e.g., width 32)
 	ascii := convertToAscii(img)
-	ascii = downscaleAscii(ascii, newWidth, 64)
+	ascii = downscaleAscii(ascii, newWidth, reqwidth)
 	trimascii := trimAndPadAscii(ascii)
 	return trimascii, nil
 }

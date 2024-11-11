@@ -18,7 +18,7 @@ func call_pokeInspect(cfg_state *config.ConfigState, args ...string) (string, []
 	pokemon, ok := cfg_state.PokemonCaught[toInspect]
 	if ok {
 		var pokedetails strings.Builder
-		ascii_img, err := imagegen.AsciiGen(pokemon.Sprites.FrontDefault)
+		ascii_img, err := imagegen.AsciiGen(pokemon.Sprites.FrontDefault,64)
 		if err != nil {
 			pokedetails.WriteString(" [Image Unavailable]\n")
 		}
@@ -43,7 +43,7 @@ func call_pokeInspect(cfg_state *config.ConfigState, args ...string) (string, []
 		return "", nil, fmt.Errorf("%s not in inventory, can't inspect", toInspect)
 	}
 	var itemdetails strings.Builder
-	ascii_img, err := imagegen.AsciiGen(helditem.Sprites.Default)
+	ascii_img, err := imagegen.AsciiGen(helditem.Sprites.Default,64)
 	if err != nil {
 		itemdetails.WriteString(" [Image Unavailable]\n")
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/som-pat/poke_dex/internal/config"
 	"github.com/som-pat/poke_dex/internal/replinternal"
+	"github.com/som-pat/poke_dex/imagegen"
 )
 
 type btBaseModel struct {
@@ -188,18 +189,21 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return clearMessage{}
 				})
 			}else if m.battlestate{
+
 				switch m.textInput.Value() {
 				case "attack":
 					m.output = "player attacks!"
-				case "item":
-					m.output = "Using an item!"
+				case "item":					
+					m.output, _ = InventoryView(m.cfgState,"item")
+				case "switch":					
+					m.output,m.PokemonList.Items = InventoryView(m.cfgState, "switch")
 				case "catch":
-					m.output = "Catching Pokemon, choose the balls"
+					m.output = "Catching Pokemon, choose the balls!"
 				case "escape":
 					m.output = "You escaped the battle!"
 					m.battlestate = false
 				default:
-					m.output = "Choose a valid battle command: [Attack], [Item], [Catch], [Escape]"
+					m.output = "Choose a valid battle command: [Attack], [Item], [switch], [Catch], [Escape]"
 				}
 				m.textInput.SetValue("")
 				return m, cmd			
@@ -213,7 +217,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textInput.SetValue("")
 			}		
 		}
-		case clearMessage:
+	case clearMessage:
 		// Clear the initial battle message and switch to the battle HUD
 		m.showmsg = false
 		m.output = ""
@@ -222,6 +226,31 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.textInput, cmd = m.textInput.Update(msg)
 	return m, cmd
+}
+
+func InventoryView(cfgState *config.ConfigState,swcase string ) (string,[]string){
+	var inventory strings.Builder
+	var contianer []string
+	if swcase == "switch"{
+		if len(cfgState.PokemonCaught)==0{
+			inventory.WriteString("Try with balls caus you dont have any poke to switch with")
+			return inventory.String(),nil
+		}
+		for _, poke := range cfgState.PokemonCaught{
+			inventory.WriteString(fmt.Sprintf("%s \n",poke.Name))
+			ascii_img, _ := imagegen.AsciiGen(poke.Sprites.FrontDefault,64)
+			contianer = append(contianer, ascii_img)
+			}
+	}else{
+		if len(cfgState.ItemsHeld)==0{
+			inventory.WriteString("No balls to try")
+			return inventory.String(),nil
+		}
+		for _, item := range cfgState.ItemsHeld{
+			inventory.WriteString(fmt.Sprintf("%s \n",item.Name))
+		}
+	}		
+	return inventory.String(),contianer
 }
 
 type clearMessage struct{}
@@ -246,22 +275,23 @@ func (m btBaseModel) View() string {
 		}
 
 		// Battle HUD layout
-		battleBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Padding(1, 2).Width(100).Height(20)
-		commandBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Padding(0, 2).Width(100).Align(lipgloss.Center)
+		battleBox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0, 0, 0, 0).Width(128).Height(20)
+		commandBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Padding(0, 2).Width(128).Align(lipgloss.Center)
 
 		topLeftPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(m.PokemonList.Items[1])
-		bottomRightPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render("player pokemon")
+		bottomRightPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.PokemonList.Items[1])
 
 		// Display Pokémon and commands
 		pokemonView := lipgloss.JoinVertical(lipgloss.Left,
-			lipgloss.PlaceHorizontal(20, lipgloss.Left, topLeftPokemon),
-			lipgloss.NewStyle().Height(12).Render(""), // Spacer for middle
-			lipgloss.PlaceHorizontal(80, lipgloss.Right, bottomRightPokemon),
+			lipgloss.PlaceHorizontal(0, lipgloss.Left, topLeftPokemon),
+			lipgloss.NewStyle().Height(1).Render(""), // Spacer for middle
+			lipgloss.PlaceHorizontal(128, lipgloss.Right, bottomRightPokemon),
 		)
 
 		commands := lipgloss.JoinHorizontal(lipgloss.Top,
 			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10")).Render("[Attack]"),
 			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11")).Render("[Item]"),
+			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13")).Render("[Switch]"),
 			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12")).Render("[Catch]"),
 			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9")).Render("[Escape]"),
 		)

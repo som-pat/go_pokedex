@@ -22,7 +22,7 @@ func call_battle(cfg_state *config.ConfigState, args ...string) (string,[]string
 	}else{
 		carrier = append(carrier, pokeDetails.Name)
 		cmdseq.WriteString(fmt.Sprintf("Initiating Battle sequence with %s.....",pokeDetails.Name))
-		ascii_img, err := imagegen.AsciiGen(pokeDetails.Sprites.FrontDefault)
+		ascii_img, err := imagegen.AsciiGen(pokeDetails.Sprites.FrontDefault,32)
 		if err != nil {
 			cmdseq.WriteString(" [Image Unavailable]\n")
 		}
