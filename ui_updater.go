@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,13 +16,16 @@ import (
 )
 
 type btBaseModel struct {
-	textInput    textinput.Model
-	output       string
-	cfgState     *config.ConfigState
-	locationList *Paginatedlisting
-	PokemonList  *Paginatedlisting
-	showLoc		 bool
-	showPoke	 bool
+	textInput    	textinput.Model
+	output       	string
+	cfgState     	*config.ConfigState
+	locationList 	*Paginatedlisting
+	PokemonList  	*Paginatedlisting
+	showLoc		 	bool
+	showPoke	 	bool
+	battlestate  	bool
+	battleTarget 	string
+	showmsg			bool
 }
 
 type Paginatedlisting struct {
@@ -58,6 +62,9 @@ func takeInput(cfgState *config.ConfigState) btBaseModel {
 		PokemonList:  InitPaginatedListing(40),
 		showLoc: 	  false,
 		showPoke: 	  false,
+		battlestate:  false,
+		battleTarget: "",
+		showmsg:      false,
 	}
 }
 
@@ -167,20 +174,57 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showPoke =true
 				m.showLoc = false
 				m.textInput.SetValue("") 
+			}else if strings.HasPrefix(m.textInput.Value(),"battle") {
+				m.battlestate = true
+				m.showLoc = false
+				m.showPoke = true
+				m.showmsg = true
+				m.output,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
+				m.battleTarget = m.PokemonList.Items[0]
+				m.PokemonList.count = len(m.PokemonList.Items)
+				m.textInput.SetValue("")
+				return m, tea.Tick(5*time.Second, func(_ time.Time) tea.Msg {
+					// Clear the initial message after 1 second
+					return clearMessage{}
+				})
+			}else if m.battlestate{
+				switch m.textInput.Value() {
+				case "attack":
+					m.output = "player attacks!"
+				case "item":
+					m.output = "Using an item!"
+				case "catch":
+					m.output = "Catching Pokemon, choose the balls"
+				case "escape":
+					m.output = "You escaped the battle!"
+					m.battlestate = false
+				default:
+					m.output = "Choose a valid battle command: [Attack], [Item], [Catch], [Escape]"
+				}
+				m.textInput.SetValue("")
+				return m, cmd			
+			
+				
 			}else {
 				m.output, m.locationList.Items = processCommand(m.textInput.Value(), m.cfgState)
 				m.locationList.count = len(m.locationList.Items)
 				m.showPoke =false
 				m.showLoc = true
 				m.textInput.SetValue("")
-			}
+			}		
 		}
-
+		case clearMessage:
+		// Clear the initial battle message and switch to the battle HUD
+		m.showmsg = false
+		m.output = ""
+		return m, cmd
 	}
 
 	m.textInput, cmd = m.textInput.Update(msg)
 	return m, cmd
 }
+
+type clearMessage struct{}
 
 func (m btBaseModel) View() string {
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("35"))
@@ -194,6 +238,42 @@ func (m btBaseModel) View() string {
 	paddingLines := screenHeight - outputHeight - 5 // Extra space for the prompt and instructions
 
 	padding := strings.Repeat("\n", paddingLines)
+
+
+	if m.battlestate{
+		if m.showmsg{
+			return fmt.Sprintf("%s\n\n%s",m.output, m.textInput.View())
+		}
+
+		// Battle HUD layout
+		battleBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Padding(1, 2).Width(100).Height(20)
+		commandBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Padding(0, 2).Width(100).Align(lipgloss.Center)
+
+		topLeftPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(m.PokemonList.Items[1])
+		bottomRightPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render("player pokemon")
+
+		// Display Pokémon and commands
+		pokemonView := lipgloss.JoinVertical(lipgloss.Left,
+			lipgloss.PlaceHorizontal(20, lipgloss.Left, topLeftPokemon),
+			lipgloss.NewStyle().Height(12).Render(""), // Spacer for middle
+			lipgloss.PlaceHorizontal(80, lipgloss.Right, bottomRightPokemon),
+		)
+
+		commands := lipgloss.JoinHorizontal(lipgloss.Top,
+			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10")).Render("[Attack]"),
+			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11")).Render("[Item]"),
+			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12")).Render("[Catch]"),
+			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9")).Render("[Escape]"),
+		)
+
+		return lipgloss.JoinVertical(lipgloss.Left,
+			battleBox.Render(pokemonView),
+			commandBox.Render(commands),
+			m.output,
+			"\n", m.textInput.View(),
+		)
+	}
+	
 
 	return fmt.Sprintf(
 		"%s\n%s\n%s %s\n\n%s\n",

@@ -44,6 +44,12 @@ func get_command() map[string] cliCommand{
 			callback:    call_search,
 		},
 
+		"battle":{
+			name:		 "battle{Pokemon name}",
+			description: "battle Wild Pokemons",
+			callback:    call_battle,
+		},
+
 		"catch":{
 			name:		 "catch{Pokemon name}",
 			description: "Catch Pokemons",
