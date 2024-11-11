@@ -27,6 +27,8 @@ type btBaseModel struct {
 	battlestate  	bool
 	battleTarget 	string
 	showmsg			bool
+	selCom          int
+	commands		[]string
 }
 
 type Paginatedlisting struct {
@@ -66,6 +68,8 @@ func takeInput(cfgState *config.ConfigState) btBaseModel {
 		battlestate:  false,
 		battleTarget: "",
 		showmsg:      false,
+		selCom: 	  0,
+		commands: 	  []string{"Attack", "Item", "Switch", "Catch", "Escape"},
 	}
 }
 
@@ -90,6 +94,14 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "left":
+			if m.battlestate && m.selCom >0{
+				m.selCom--
+			}
+		case "right":
+			if m.battlestate && m.selCom<len(m.commands)-1{
+				m.selCom ++
+			}
 		case "up":
 			if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(),"inspect"){
 				if m.locationList.count == 0 {
@@ -174,6 +186,8 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.PokemonList.count = len(m.PokemonList.Items)
 				m.showPoke =true
 				m.showLoc = false
+				m.battlestate = false
+				m.showmsg = false
 				m.textInput.SetValue("") 
 			}else if strings.HasPrefix(m.textInput.Value(),"battle") {
 				m.battlestate = true
@@ -190,23 +204,21 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				})
 			}else if m.battlestate{
 
-				switch m.textInput.Value() {
-				case "attack":
+				switch m.commands[m.selCom] {
+				case "Attack":
 					m.output = "player attacks!"
-				case "item":					
+				case "Item":					
 					m.output, _ = InventoryView(m.cfgState,"item")
-				case "switch":					
+				case "Switch":					
 					m.output,m.PokemonList.Items = InventoryView(m.cfgState, "switch")
-				case "catch":
+				case "Catch":
 					m.output = "Catching Pokemon, choose the balls!"
-				case "escape":
+				case "Escape":
 					m.output = "You escaped the battle!"
 					m.battlestate = false
-				default:
-					m.output = "Choose a valid battle command: [Attack], [Item], [switch], [Catch], [Escape]"
 				}
-				m.textInput.SetValue("")
-				return m, cmd			
+
+				m.textInput.SetValue("")			
 			
 				
 			}else {
@@ -214,6 +226,8 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.locationList.count = len(m.locationList.Items)
 				m.showPoke =false
 				m.showLoc = true
+				m.battlestate = false
+				m.showmsg = false
 				m.textInput.SetValue("")
 			}		
 		}
@@ -238,7 +252,7 @@ func InventoryView(cfgState *config.ConfigState,swcase string ) (string,[]string
 		}
 		for _, poke := range cfgState.PokemonCaught{
 			inventory.WriteString(fmt.Sprintf("%s \n",poke.Name))
-			ascii_img, _ := imagegen.AsciiGen(poke.Sprites.FrontDefault,64)
+			ascii_img, _ := imagegen.AsciiGen(poke.Sprites.FrontDefault,16)
 			contianer = append(contianer, ascii_img)
 			}
 	}else{
@@ -257,14 +271,14 @@ type clearMessage struct{}
 
 func (m btBaseModel) View() string {
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("35"))
-	screenHeight := 41 // Adjust this based on your terminal height if necessary
+	screenHeight := 41 
 
-	// Count lines in the output
+	
 	outputLines := strings.Split(m.output, "\n")
 	outputHeight := len(outputLines)
 
-	// Calculate padding needed to push the prompt to the bottom
-	paddingLines := screenHeight - outputHeight - 5 // Extra space for the prompt and instructions
+	
+	paddingLines := screenHeight - outputHeight - 5 
 
 	padding := strings.Repeat("\n", paddingLines)
 
@@ -275,30 +289,65 @@ func (m btBaseModel) View() string {
 		}
 
 		// Battle HUD layout
-		battleBox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0, 0, 0, 0).Width(128).Height(20)
-		commandBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Padding(0, 2).Width(128).Align(lipgloss.Center)
+		commands := make([]string, len(m.commands))
+		for i, cmd := range m.commands {
+			style := lipgloss.NewStyle().Bold(true)
+			if i == m.selCom {
+				style = style.Foreground(lipgloss.Color("220")).Underline(true)
+			} else {
+				style = style.Foreground(lipgloss.Color("240"))
+			}
+			commands[i] = style.Render("[" + cmd + "]")
+		}
+
+		commandBoxContent := lipgloss.JoinHorizontal(lipgloss.Top, commands...)
+		commandBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Padding(0, 2).Width(128).Align(lipgloss.Center).Render(commandBoxContent)
+
+
+		enemyViewBox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0,0,0,0).Width(64).Height(15)
+		enemyStatusBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0,0,0,0).Width(64).Height(3)
+		playerViewBox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0, 0, 0, 0).Width(64).Height(15)
+		playerStatusBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0,0,0,0).Width(64).Height(3)
+		
 
 		topLeftPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(m.PokemonList.Items[1])
+		topLeftStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(m.PokemonList.Items[0])
 		bottomRightPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.PokemonList.Items[1])
+		bottomRightStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.PokemonList.Items[0])
 
+		
 		// Display Pokémon and commands
-		pokemonView := lipgloss.JoinVertical(lipgloss.Left,
-			lipgloss.PlaceHorizontal(0, lipgloss.Left, topLeftPokemon),
-			lipgloss.NewStyle().Height(1).Render(""), // Spacer for middle
-			lipgloss.PlaceHorizontal(128, lipgloss.Right, bottomRightPokemon),
-		)
+		enemyPokemonView := lipgloss.JoinVertical(lipgloss.Top,
+			lipgloss.PlaceHorizontal(0,lipgloss.Left,topLeftPokemon))
+		
+		playerPokemonView := lipgloss.JoinVertical(lipgloss.Bottom,
+			lipgloss.PlaceHorizontal(64,lipgloss.Right,bottomRightPokemon))
+		
+		enemyBox := lipgloss.JoinVertical(lipgloss.Top,enemyViewBox.Render(enemyPokemonView),
+					playerStatusBox.Render(topLeftStatus))
+		playerBox := lipgloss.JoinVertical(lipgloss.Top, enemyStatusBox.Render(bottomRightStatus),
+					 playerViewBox.Render(playerPokemonView))			
+		
+		
+		battleBox :=lipgloss.JoinHorizontal(lipgloss.Left,enemyBox,
+					playerBox)
+		// pokemonView := lipgloss.JoinVertical(lipgloss.Left,
+		// 	lipgloss.PlaceHorizontal(64, lipgloss.Left, topLeftPokemon),
+		// 	lipgloss.NewStyle().Height(0).Render(""), // Spacer for middle
+		// 	lipgloss.PlaceHorizontal(128, lipgloss.Right, bottomRightPokemon),
+		// )
 
-		commands := lipgloss.JoinHorizontal(lipgloss.Top,
-			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10")).Render("[Attack]"),
-			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11")).Render("[Item]"),
-			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13")).Render("[Switch]"),
-			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12")).Render("[Catch]"),
-			lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9")).Render("[Escape]"),
-		)
+		// commands := lipgloss.JoinHorizontal(lipgloss.Top,
+		// 	lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10")).Render("[Attack]"),
+		// 	lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11")).Render("[Item]"),
+		// 	lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("13")).Render("[Switch]"),
+		// 	lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12")).Render("[Catch]"),
+		// 	lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9")).Render("[Escape]"),
+		// )
 
 		return lipgloss.JoinVertical(lipgloss.Left,
-			battleBox.Render(pokemonView),
-			commandBox.Render(commands),
+			battleBox,
+			commandBox,
 			m.output,
 			"\n", m.textInput.View(),
 		)

@@ -23,16 +23,13 @@ func AsciiGen(imageURL string,reqwidth int) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	// Check the Content-Type
 	contentType := resp.Header.Get("Content-Type")
 
-	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("failed to read image data: %v", err)
 	}
 
-	// Decode the image based on content type
 	var img image.Image
 	switch {
 	case strings.Contains(contentType, "png"):
@@ -46,11 +43,9 @@ func AsciiGen(imageURL string,reqwidth int) (string, error) {
 		return "", fmt.Errorf("failed to decode image: %v", err)
 	}
 
-	// Resize for terminal display at original width of 128
 	const newWidth = 2048
 	img = resize.Resize(newWidth, 0, img, resize.Lanczos3)
 
-	// Convert to ASCII and downscale to smaller size (e.g., width 32)
 	ascii := convertToAscii(img)
 	ascii = downscaleAscii(ascii, newWidth, reqwidth)
 	trimascii := trimAndPadAscii(ascii)
@@ -97,17 +92,15 @@ func downscaleAscii(ascii string, originalWidth, targetWidth int) string {
 func trimAndPadAscii(ascii string) string {
     lines := strings.Split(ascii, "\n")
 
-    // Remove empty lines from the top
     for len(lines) > 0 && strings.TrimSpace(lines[0]) == "" {
         lines = lines[1:]
     }
 
-    // Remove empty lines from the bottom
     for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
         lines = lines[:len(lines)-1]
     }
 
-    // Find the minimum leading spaces across all lines to trim uniformly
+
     minLeadingSpaces := len(lines[0])
     for _, line := range lines {
         trimmedLine := strings.TrimSpace(line)
@@ -119,13 +112,11 @@ func trimAndPadAscii(ascii string) string {
         }
     }
 
-    // Trim lines by minLeadingSpaces and add 2 spaces padding on both sides
     for i, line := range lines {
         trimmed := line[minLeadingSpaces:]
-        lines[i] = "  " + trimmed + "  " // Add 2 spaces padding to the left and right
+        lines[i] = "  " + trimmed + "  " 
     }
 
-    // Add 1 empty line at the top and bottom
     lines = append([]string{""}, lines...)
     lines = append(lines, "")
 
