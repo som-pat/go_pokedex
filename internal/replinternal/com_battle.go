@@ -21,8 +21,8 @@ func call_battle(cfg_state *config.ConfigState, args ...string) (string,[]string
 		return "", nil, fmt.Errorf("%s not a valid pokemon", tobattle)
 	}else{
 		carrier = append(carrier, pokeDetails.Name)
-		cmdseq.WriteString(fmt.Sprintf("Initiating Battle sequence with %s.....",pokeDetails.Name))
-		ascii_img, err := imagegen.AsciiGen(pokeDetails.Sprites.FrontDefault,48)
+		cmdseq.WriteString(fmt.Sprintf("Initiating Battle sequence with %s.....\n\n",pokeDetails.Name))
+		ascii_img, err := imagegen.AsciiGen(pokeDetails.Sprites.FrontDefault,56)
 		if err != nil {
 			cmdseq.WriteString(" [Image Unavailable]\n")
 		}

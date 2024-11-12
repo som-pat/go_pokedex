@@ -98,7 +98,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c", "esc":
 			return m, tea.Quit
 		case "left":
 			if m.battlestate && m.selattr >0{
@@ -221,7 +221,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.battleTarget = m.PokemonList.Items[0]
 				m.PokemonList.count = len(m.PokemonList.Items)
 				m.textInput.SetValue("")
-				return m, tea.Tick(5*time.Second, func(_ time.Time) tea.Msg {
+				return m, tea.Tick(2*time.Second, func(_ time.Time) tea.Msg {
 					return clearMessage{}
 				})
 			}else if m.battlestate{
@@ -230,10 +230,13 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "Attack":
 					m.output = "player attacks!"
 				case "Item":
-					m.attributes = m.UserInv.ItemName					
-					m.output= "switching Pokemons"
+					m.attributes = m.UserInv.ItemName
+					m.UserInv.ItemDescriptions=nil
+					InventoryView(m.cfgState, m.UserInv,"item",m.selattr)					
+					m.output= fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selattr)
 				case "Switch":					
 					m.attributes = m.UserInv.PokeName
+					m.UserInv.PokeDescriptions = nil
 					InventoryView(m.cfgState,m.UserInv,"switch",m.selattr)
 					m.output = fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selattr)
 				case "Catch":
@@ -282,12 +285,21 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 	case "switch":
 		for _, poke := range cfgState.PokemonCaught{
 			if poke.Name == uvin.PokeName[index]{
-				ascii_img, _ := imagegen.AsciiGen(poke.Sprites.FrontDefault,48)
+				ascii_img, _ := imagegen.AsciiGen(poke.Sprites.FrontDefault,56)
 				uvin.PokeSprite =  ascii_img
+				for _,stats := range poke.Stats{
+					status := fmt.Sprintf("%s-%d/%d\n",stats.Stat.Name,stats.BaseStat,stats.BaseStat)
+					uvin.PokeDescriptions = append(uvin.PokeDescriptions, status)
+				}
 			}
 		}	
-	}			
-	
+	case "item":
+		for _,item := range cfgState.ItemsHeld{
+			uvin.ItemDescriptions= append(uvin.ItemDescriptions, item.Category.Name)
+			uvin.ItemDescriptions = append(uvin.ItemDescriptions, item.EffectEntries[0].ShortEffect)
+		}
+
+	}	
 }
 
 type clearMessage struct{}
@@ -340,6 +352,8 @@ func (m btBaseModel) View() string {
 			}
 			attributes[i] = style.Render("[" + attr+ "]")
 		}
+		var plstats string
+		var tlstats string
 
 		commandBoxContent := lipgloss.JoinVertical(lipgloss.Top, commands...)
 		commandAttrContent := lipgloss.JoinHorizontal(lipgloss.Top, attributes...)
@@ -354,12 +368,24 @@ func (m btBaseModel) View() string {
 		playerViewBox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0, 0, 0, 0).Width(64).Height(15)
 		playerStatusBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0,0,0,0).Width(64).Height(3)
 		
-		tlstats := lipgloss.JoinVertical(lipgloss.Top,m.PokemonList.Items[0],m.PokemonList.Items[2])
+		
+		if len(m.PokemonList.Items)>4 {
+			tlstats = lipgloss.JoinVertical(lipgloss.Top,m.PokemonList.Items[0],m.PokemonList.Items[2])
+		}else{
+			tlstats = lipgloss.JoinVertical(lipgloss.Top,"Enemy Pokemon")
+		}		
+
+		if len(m.UserInv.PokeDescriptions) > 0 {
+			plstats = lipgloss.JoinVertical(lipgloss.Top, m.UserInv.PokeName[m.selattr], m.UserInv.PokeDescriptions[0])
+		} else {
+			plstats = lipgloss.JoinVertical(lipgloss.Top, "Player 1")
+		}
 
 		topLeftPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(m.PokemonList.Items[1])
 		topLeftStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(tlstats)
+		
 		bottomRightPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.UserInv.PokeSprite)
-		bottomRightStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.UserInv.PokeName[m.selattr])
+		bottomRightStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(plstats)
 
 		
 		// Display Pokémon and commands
@@ -371,7 +397,7 @@ func (m btBaseModel) View() string {
 		
 		enemyBox := lipgloss.JoinVertical(lipgloss.Top,enemyViewBox.Render(enemyPokemonView),
 					playerStatusBox.Render(topLeftStatus))
-		playerBox := lipgloss.JoinVertical(lipgloss.Top, enemyStatusBox.Render(bottomRightStatus),
+		playerBox := lipgloss.JoinVertical(lipgloss.Right, enemyStatusBox.Render(bottomRightStatus),
 					 playerViewBox.Render(playerPokemonView))			
 		
 		
@@ -405,7 +431,7 @@ func (m btBaseModel) View() string {
 		headerStyle.Render(m.output),
 		padding,
 		"Pokedex", m.textInput.View(),
-		"[Press 'q' to quit, 'up'/'down' to navigate, 'enter' to confirm]",
+		"[Press 'esc' to quit, 'up'/'down'/'right'/'left' to navigate, 'enter' to confirm]",
 	)
 }
 

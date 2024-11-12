@@ -25,7 +25,6 @@ func call_forage(cfg_state *config.ConfigState, args ...string) (string,[]string
 	var itemScoured strings.Builder
 	cfg_state.ItemsHeld[itemdes.Name] = itemdes
 	itemScoured.WriteString(fmt.Sprintf("Foraged %s \n",itemdes.Name))
-	itemScoured.WriteString(fmt.Sprintf("len of %d \n",len(cfg_state.ItemsHeld)))
 	return itemScoured.String(),nil, nil	
 
 }
