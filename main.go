@@ -1,7 +1,7 @@
 package main
 
 import (
-	
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -27,7 +27,7 @@ func main()	{
 func Run(cfgState *config.ConfigState) {
     p:= tea.NewProgram(takeInput(cfgState))
     if _,err := p.Run(); err != nil {
-        panic(err)
+        fmt.Printf("Error starting program: %v\n", err)
     }
 }
 
