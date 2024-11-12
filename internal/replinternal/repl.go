@@ -39,9 +39,9 @@ func get_command() map[string] cliCommand{
 			callback:    call_explore,
 		},
 		"scout":{
-			name:		 "scout 'pokemon/item' ",
-			description: "Search for given Pokemons/items in chosen location",
-			callback:    call_search,
+			name:		 "scout",
+			description: "Scour the region to find Pokemons/Items",
+			callback:    call_scout,
 		},
 
 		"battle":{

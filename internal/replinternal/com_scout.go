@@ -9,26 +9,13 @@ import (
 	"github.com/som-pat/poke_dex/internal/config"
 )
 
-func call_search(cfg_state *config.ConfigState, args ...string) (string,[]string,error){
-	if len(args) != 1{
-		return "",nil,errors.New("no pokemon or item name provided")
-	}
+func call_scout(cfg_state *config.ConfigState, args ...string) (string,[]string,error){
 	if cfg_state.CurrentEncounterList == nil {
         return "",nil, errors.New("region not encountered")
     }
-	toSearch := args[0]
-	toSearchok := false
-	for _, name := range *cfg_state.CurrentEncounterList{
-		if name == toSearch{ 
-			toSearchok = true
-			break
-		}
-	}
+	
 	var encounter strings.Builder
 	var encolist []string
-	if !toSearchok{
-		return "", nil, fmt.Errorf("%s not in this region",toSearch)
-	}
 
 	const commonWeight = 10
 	const isItem = 12.3
