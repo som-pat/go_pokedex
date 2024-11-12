@@ -14,6 +14,10 @@ func call_forage(cfg_state *config.ConfigState, args ...string) (string,[]string
 		return "",nil,errors.New("no item name provided")
 	}
 	toForage := args[0]
+	_,exists := cfg_state.ItemsHeld[toForage]
+	if exists{
+		return "",nil, fmt.Errorf("%s already exists in your inventory",toForage)
+	}
 	itemdes, itemErr := cfg_state.PokeapiClient.ItemFetch(toForage)
 	if itemErr != nil{
 		return "", nil, errors.New("no such item found")

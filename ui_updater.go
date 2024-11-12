@@ -212,7 +212,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					
 				}
-				InventoryView(m.cfgState,m.UserInv,"fill")
+				InventoryView(m.cfgState,m.UserInv,"fill",0)
 				m.battlestate = true
 				m.showLoc = false
 				m.showPoke = true
@@ -229,11 +229,13 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				switch m.commands[m.selCom] {
 				case "Attack":
 					m.output = "player attacks!"
-				case "Item":					
+				case "Item":
+					m.attributes = m.UserInv.ItemName					
 					m.output= "switching Pokemons"
 				case "Switch":					
 					m.attributes = m.UserInv.PokeName
-					m.output = "Switching"
+					InventoryView(m.cfgState,m.UserInv,"switch",m.selattr)
+					m.output = fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selattr)
 				case "Catch":
 					m.output = "Catching Pokemon, choose the balls!"
 				case "Escape":
@@ -265,7 +267,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase string ){
+func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase string, index int){
 	if len(cfgState.PokemonCaught) == 0 && len(cfgState.ItemsHeld) == 0{
 		return 
 	}	
@@ -279,10 +281,11 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 		}
 	case "switch":
 		for _, poke := range cfgState.PokemonCaught{
-			ascii_img, _ := imagegen.AsciiGen(poke.Sprites.FrontDefault,48)
-			uvin.PokeSprite =  ascii_img
+			if poke.Name == uvin.PokeName[index]{
+				ascii_img, _ := imagegen.AsciiGen(poke.Sprites.FrontDefault,48)
+				uvin.PokeSprite =  ascii_img
 			}
-
+		}	
 	}			
 	
 }
@@ -354,8 +357,8 @@ func (m btBaseModel) View() string {
 
 		topLeftPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(m.PokemonList.Items[1])
 		topLeftStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(m.PokemonList.Items[0])
-		bottomRightPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.PokemonList.Items[1])
-		bottomRightStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.PokemonList.Items[0])
+		bottomRightPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.UserInv.PokeSprite)
+		bottomRightStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.UserInv.PokeName[m.selattr])
 
 		
 		// Display Pokémon and commands

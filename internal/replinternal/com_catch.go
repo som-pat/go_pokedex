@@ -12,8 +12,11 @@ func call_catch(cfg_state *config.ConfigState, args ...string) (string,[]string,
 	if len(args) != 1{
 		return "",nil,errors.New("no pokemon or item name provided")
 	}
-	toScour := args[0]	
-
+	toScour := args[0]
+	_,exists := cfg_state.PokemonCaught[toScour]
+	if exists{
+		return "",nil, fmt.Errorf("%s already exists in your inventory",toScour)
+	}
 	pokemon, err := cfg_state.PokeapiClient.InvokePokeCatch(toScour)
 	if err != nil{
 		return "", nil, errors.New("no such pokemon found")
