@@ -354,9 +354,10 @@ func (m btBaseModel) View() string {
 		playerViewBox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0, 0, 0, 0).Width(64).Height(15)
 		playerStatusBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0,0,0,0).Width(64).Height(3)
 		
+		tlstats := lipgloss.JoinVertical(lipgloss.Top,m.PokemonList.Items[0],m.PokemonList.Items[2])
 
 		topLeftPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(m.PokemonList.Items[1])
-		topLeftStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(m.PokemonList.Items[0])
+		topLeftStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(tlstats)
 		bottomRightPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.UserInv.PokeSprite)
 		bottomRightStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.UserInv.PokeName[m.selattr])
 

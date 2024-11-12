@@ -27,7 +27,11 @@ func call_battle(cfg_state *config.ConfigState, args ...string) (string,[]string
 			cmdseq.WriteString(" [Image Unavailable]\n")
 		}
 		cmdseq.WriteString(ascii_img + "\n")
-		carrier = append(carrier, ascii_img)	
+		carrier = append(carrier, ascii_img)
+		for _,stats := range pokeDetails.Stats{
+			status := fmt.Sprintf("%s-%d/%d\n",stats.Stat.Name,stats.BaseStat,stats.BaseStat)
+			carrier = append(carrier, status)
+		}		
 	}
 
 	cmdseq.WriteString("Engaging")
