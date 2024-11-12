@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
+
 	"github.com/som-pat/poke_dex/internal/config"
 )
 
@@ -20,13 +22,14 @@ func call_catch(cfg_state *config.ConfigState, args ...string) (string,[]string,
 	pokemon, err := cfg_state.PokeapiClient.InvokePokeCatch(toScour)
 	if err != nil{
 		return "", nil, errors.New("no such pokemon found")
-	}else{	
+	}else{
+		var rng = rand.New(rand.NewSource(time.Now().UnixNano()))	
 		var catchchance strings.Builder
 		// three chances to catch after that poke will escape
 		const chances = 60
 		for i:=1;i<=3;i++{
-			randChances := rand.Intn(chances)
-			randBaseExp := rand.Intn(pokemon.BaseExperience)
+			randChances := rng.Intn(chances)
+			randBaseExp := rng.Intn(pokemon.BaseExperience)
 			if randChances < randBaseExp{
 				catchchance.WriteString(fmt.Sprintf("%s not caught \n", pokemon.Name))
 			}else{

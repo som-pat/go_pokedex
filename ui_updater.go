@@ -2,20 +2,24 @@ package main
 
 import (
 	"fmt"
+	// "math/rand"
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/som-pat/poke_dex/imagegen"
 	"github.com/som-pat/poke_dex/internal/config"
 	"github.com/som-pat/poke_dex/internal/replinternal"
-	"github.com/som-pat/poke_dex/imagegen"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
-
+// var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 type btBaseModel struct {
 	textInput    	textinput.Model
 	output       	string
@@ -203,14 +207,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textInput.SetValue("") 
 			}else if strings.HasPrefix(m.textInput.Value(),"battle") {
 				if m.UserInv == nil{
-					m.UserInv = &UserInventory{
-						PokeSprite:  	  "",
-						PokeName: 		  []string{},
-						ItemName: 		  []string{},	
-						PokeDescriptions: []string{},
-						ItemDescriptions: []string{},
-					}
-					
+					m.UserInv = InitInventoryListing()					
 				}
 				InventoryView(m.cfgState,m.UserInv,"fill",0)
 				m.battlestate = true
@@ -220,6 +217,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.output,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
 				m.battleTarget = m.PokemonList.Items[0]
 				m.PokemonList.count = len(m.PokemonList.Items)
+				
 				m.textInput.SetValue("")
 				return m, tea.Tick(2*time.Second, func(_ time.Time) tea.Msg {
 					return clearMessage{}
@@ -288,8 +286,7 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 				ascii_img, _ := imagegen.AsciiGen(poke.Sprites.FrontDefault,56)
 				uvin.PokeSprite =  ascii_img
 				for _,stats := range poke.Stats{
-					status := fmt.Sprintf("%s-%d/%d\n",stats.Stat.Name,stats.BaseStat,stats.BaseStat)
-					uvin.PokeDescriptions = append(uvin.PokeDescriptions, status)
+					uvin.PokeDescriptions = append(uvin.PokeDescriptions, strconv.Itoa(stats.BaseStat))
 				}
 			}
 		}	
@@ -308,8 +305,42 @@ type UserInventory struct{
 	PokeSprite				string
 	PokeName				[]string
 	ItemName				[]string
+	MoveName				[]string
 	PokeDescriptions		[]string
 	ItemDescriptions		[]string
+	MoveDescriptions		[]string
+
+}
+
+func InitInventoryListing() *UserInventory {
+	return &UserInventory{
+		PokeSprite:  	  "",
+		PokeName: 		  []string{},
+		ItemName: 		  []string{},
+		MoveName: 		  []string{},	
+		PokeDescriptions: []string{},
+		ItemDescriptions: []string{},
+		MoveDescriptions: []string{},
+	}
+}
+
+
+
+func HealthBar(curHP,maxHP int)string{
+	hpercent := float64(curHP)/float64(maxHP)
+	barwidth := 10
+
+	filledWidth :=int(hpercent*float64(barwidth))
+	emptyWidth:= barwidth - filledWidth
+	
+	filledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Background(lipgloss.Color("#004400"))
+    emptyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#555555")).Background(lipgloss.Color("#222222"))
+
+	filled := filledStyle.Render(strings.Repeat("█", filledWidth))
+	empty :=  emptyStyle.Render(strings.Repeat(" ",emptyWidth))
+	hpercent *= 100
+	return fmt.Sprintf("%s%s %d%%", filled, empty, int(hpercent))
+
 }
 
 func (m btBaseModel) View() string {
@@ -368,15 +399,23 @@ func (m btBaseModel) View() string {
 		playerViewBox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0, 0, 0, 0).Width(64).Height(15)
 		playerStatusBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(0,0,0,0).Width(64).Height(3)
 		
+
 		
 		if len(m.PokemonList.Items)>4 {
-			tlstats = lipgloss.JoinVertical(lipgloss.Top,m.PokemonList.Items[0],m.PokemonList.Items[2])
+			hp,err := strconv.Atoi(m.PokemonList.Items[3])
+			if err!=nil{return "Error Converting"}
+			enemyhb := HealthBar(hp,hp)
+			lvlhb := lipgloss.JoinHorizontal(lipgloss.Left,m.PokemonList.Items[2]," ",enemyhb)
+			tlstats = lipgloss.JoinVertical(lipgloss.Top,cases.Title(language.Und, cases.NoLower).String((m.PokemonList.Items[0])),lvlhb)
 		}else{
 			tlstats = lipgloss.JoinVertical(lipgloss.Top,"Enemy Pokemon")
 		}		
 
 		if len(m.UserInv.PokeDescriptions) > 0 {
-			plstats = lipgloss.JoinVertical(lipgloss.Top, m.UserInv.PokeName[m.selattr], m.UserInv.PokeDescriptions[0])
+			hp,err := strconv.Atoi(m.UserInv.PokeDescriptions[0])
+			if err!=nil{return "Error Converting"}
+			playerhb := HealthBar(hp, hp)
+			plstats = lipgloss.JoinVertical(lipgloss.Top, cases.Title(language.Und, cases.NoLower).String((m.UserInv.PokeName[m.selattr])), playerhb)
 		} else {
 			plstats = lipgloss.JoinVertical(lipgloss.Top, "Player 1")
 		}

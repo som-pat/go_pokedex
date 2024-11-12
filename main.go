@@ -1,6 +1,7 @@
 package main
 
 import (
+	
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -11,7 +12,7 @@ import (
 
 
 func main()	{
-
+	
 	cfg_state := &config.ConfigState{
 		PokeapiClient: pokeapi.NewClient(time.Hour),
 		PokemonCaught: make(map[string]pokeapi.PokemonDetails),

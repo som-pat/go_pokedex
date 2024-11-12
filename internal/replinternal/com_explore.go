@@ -3,8 +3,9 @@ package replinternal
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"math/rand"
+	"strings"
+	"time"
 
 	"github.com/som-pat/poke_dex/internal/config"
 )
@@ -19,14 +20,14 @@ func call_explore(cfg_state *config.ConfigState, args ...string) (string,[]strin
 	if err != nil {
 		return "",nil,err
 	}
-
+	var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 	const NumItems = 8
-	var Itemsadd = rand.Intn(NumItems)
+	var Itemsadd = rng.Intn(NumItems)
 	itemName, err := cfg_state.PokeapiClient.ItemRandomizer(Itemsadd)
 	if err != nil {
 		return "",nil,err
 	}
-
+	
 	var explore_reg strings.Builder
 	var lisexp_reg []string
 	explore_reg.WriteString(fmt.Sprintf("Items and Pokemons found in %s:\n", location.Name))
