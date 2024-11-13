@@ -167,3 +167,35 @@ type PokeMove struct {
 		URL  string `json:"url"`
 	} `json:"type"`
 }
+
+type FilPokeMove struct {
+	Accuracy      int `json:"accuracy"`
+	Pp            int   `json:"pp"`
+	Priority      int   `json:"priority"`
+	DamageClass struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	} `json:"damage_class"`
+	Power         int   `json:"power"`
+	Meta struct {
+		Ailment struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		} `json:"ailment"`
+		AilmentChance int `json:"ailment_chance"`
+		Category      struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		} `json:"category"`
+		CritRate     int `json:"crit_rate"`
+		Drain        int `json:"drain"`
+		FlinchChance int `json:"flinch_chance"`
+		Healing      int `json:"healing"`
+		MaxHits      any `json:"max_hits"`
+		MaxTurns     any `json:"max_turns"`
+		MinHits      any `json:"min_hits"`
+		MinTurns     any `json:"min_turns"`
+		StatChance   int `json:"stat_chance"`
+	} `json:"meta"`
+	Name  string `json:"name"`
+}

@@ -27,7 +27,7 @@ func main()	{
 
 func Run(cfgState *config.ConfigState) {
 	f, err:= tea.LogToFile("debug.log", "debug")
-	if err != nil{ log.Fatalf("err %v\n",err)}
+	if err != nil{ log.Fatalf("Error encountered %v",err)}
 	defer f.Close()
 
     p:= tea.NewProgram(takeInput(cfgState),tea.WithAltScreen())

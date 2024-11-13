@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	// "math/rand"
+	"math/rand"
 	// "os"
 	// "os/exec"
 	// "runtime"
@@ -19,7 +19,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
-// var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 const cmdview = 5
 
 type btBaseModel struct {
@@ -29,6 +29,10 @@ type btBaseModel struct {
 	locationList 	*Paginatedlisting
 	PokemonList  	*Paginatedlisting
 	UserInv			*UserInventory
+	batlog 			*BattleLog
+	MoAt			*MoveAttack
+	enemy			*EnemyPokemonStats
+	player			*PlayerPokemonStats
 	showLoc		 	bool
 	showPoke	 	bool
 	battlestate  	bool
@@ -41,6 +45,7 @@ type btBaseModel struct {
 	selmove			int
 	selitem			int
 	trackcomind		int
+	attackstate		bool
 }
 
 type Paginatedlisting struct {
@@ -62,7 +67,10 @@ func takeInput(cfgState *config.ConfigState) btBaseModel {
 		cfgState:     cfgState,
 		locationList: InitPaginatedListing(20),
 		PokemonList:  InitPaginatedListing(40),
-		UserInv: 	  &UserInventory{},	
+		UserInv: 	  &UserInventory{},
+		batlog: 	  InitBattlelogIniate(),
+		enemy: 		  &EnemyPokemonStats{},
+		player:		  &PlayerPokemonStats{},		
 		showLoc: 	  false,
 		showPoke: 	  false,
 		battlestate:  false,
@@ -74,7 +82,9 @@ func takeInput(cfgState *config.ConfigState) btBaseModel {
 		selswitch: 	  0,
 		selmove: 	  0,
 		selitem: 	  0,
-		trackcomind:  0,	
+		trackcomind:  0,
+		attackstate:  false,
+		MoAt: 		  &MoveAttack{},	
 	}
 }
 
@@ -220,14 +230,16 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.locationList.selectedIndex = 0
 			m.PokemonList.selectedIndex = 0
 			m.output =""
+
 			if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(), "scout") {				
 				m.output, m.PokemonList.Items = processCommand(m.textInput.Value(), m.cfgState)
-				m.PokemonList.count = len(m.PokemonList.Items)
 				m.showPoke =true
 				m.showLoc = false
 				m.battlestate = false
 				m.showmsg = false
+				m.attackstate = false
 				m.textInput.SetValue("") 
+
 			}else if strings.HasPrefix(m.textInput.Value(),"battle") {
 				if m.UserInv == nil{
 					m.UserInv = InitInventoryListing()					
@@ -237,30 +249,34 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showLoc = false
 				m.showPoke = true
 				m.showmsg = true
-				m.output,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
+				m.attackstate = false
+				_,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
+				if m.enemy != nil{m.enemy = nil}
+				m.enemy = InitEnpokeStats(m.PokemonList.Items)
 				m.battleTarget = m.PokemonList.Items[0]
-				m.PokemonList.count = len(m.PokemonList.Items)
-				
+				m.PokemonList.Items = nil			
 				m.textInput.SetValue("")
-				return m, tea.Tick(2*time.Second, func(_ time.Time) tea.Msg {
+				return m, tea.Tick(3*time.Second, func(_ time.Time) tea.Msg {
 					return clearMessage{}
 				})
-			}else if m.battlestate{
-				
+
+			}else if m.battlestate && !m.attackstate{				
 				switch m.commands[m.selCom] {
 				case "Attack":					
 					m.UserInv.MoveName =nil
 					InventoryView(m.cfgState,m.UserInv,"move",m.selswitch)
 					m.attributes = m.UserInv.MoveName
-					m.output = fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selmove)
+					m.attackstate = true
+					m.output = fmt.Sprintf("Switching from the %d available ones,at %d,link %s",len(m.attributes),m.selmove,m.UserInv.MoveDescriptions[m.selmove])
 				case "Item":					
 					m.attributes = m.UserInv.ItemName
 					InventoryView(m.cfgState, m.UserInv,"item",m.selitem)					
 					m.output= fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selitem)
 				case "Switch":
-					m.UserInv.PokeDescriptions = nil									
+					m.player = nil								
 					m.attributes = m.UserInv.PokeName										
 					InventoryView(m.cfgState,m.UserInv,"switch",m.selswitch)
+					m.player = InitPlpokeStats(m.UserInv.PokeDescriptions)
 					m.output = fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selswitch)
 				case "Catch":
 					m.output = "Catching Pokemon, choose the balls!"
@@ -270,9 +286,13 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.output = "You escaped the battle!"
 					m.battlestate = false
 				}
+				m.textInput.SetValue("")
 
-				m.textInput.SetValue("")			
-			
+			}else if m.battlestate && m.attackstate{
+				m.textInput.SetValue(m.UserInv.MoveDescriptions[m.selmove])
+				dev:= AttackStatsCalc(m.cfgState,m.textInput.Value(),m.MoAt,m.player,m.enemy)
+				m.output = fmt.Sprintf("%s,%d,%d,%s,%d,%s",m.textInput.Value(),m.player.MaxHP,m.player.Attack,m.UserInv.PokeName[m.selswitch],m.MoAt.endamage,dev)
+				m.attackstate = false
 				
 			}else {
 				m.output, m.locationList.Items = processCommand(m.textInput.Value(), m.cfgState)
@@ -281,11 +301,12 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showLoc = true
 				m.battlestate = false
 				m.showmsg = false
+				m.attackstate = false
 				m.textInput.SetValue("")
 			}		
 		}
 	case clearMessage:
-		// Clear the initial battle message and switch to the battle HUD
+		// Clears the initial battle message and switch to the battle HUD
 		m.showmsg = false
 		m.output = ""
 		return m, cmd
@@ -294,6 +315,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.textInput, cmd = m.textInput.Update(msg)
 	return m, cmd
 }
+
 
 func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase string, index int){
 	if len(cfgState.PokemonCaught) == 0 && len(cfgState.ItemsHeld) == 0{
@@ -310,6 +332,7 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 			uvin.ItemName = append(uvin.ItemName, item.Name)
 		}
 	case "switch":
+		uvin.PokeDescriptions =nil
 		for _, poke := range cfgState.PokemonCaught{
 			if poke.Name == uvin.PokeName[index]{
 				ascii_img, _ := imagegen.AsciiGen(poke.Sprites.FrontDefault,52)
@@ -318,6 +341,7 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 				for _,stats := range poke.Stats{
 					uvin.PokeDescriptions = append(uvin.PokeDescriptions, strconv.Itoa(stats.BaseStat))
 				}
+				uvin.PokeDescriptions = append(uvin.PokeDescriptions, uvin.PokeDescriptions[1])
 			}
 		}	
 	case "item":
@@ -327,11 +351,13 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 		}
 	case "move":
 		uvin.MoveName=nil
+		uvin.MoveDescriptions = nil
 		for _, poke := range cfgState.PokemonCaught{
 			if poke.Name == uvin.PokeName[index]{
 				for i, move := range poke.Moves{
 					if i<3{
 						uvin.MoveName = append(uvin.MoveName, move.Move.Name)
+						uvin.MoveDescriptions = append(uvin.MoveDescriptions, move.Move.URL)
 					}
 				}
 			}}
@@ -339,7 +365,79 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 	}	
 }
 
+
+func AttackStatsCalc(cfgState *config.ConfigState,MoveURL string,movat *MoveAttack, plpokstat *PlayerPokemonStats, enpokstat *EnemyPokemonStats) string{
+	
+	moveStats, err := cfgState.PokeapiClient.InvokeMove(MoveURL)
+	if err!=nil { return  "Move values not imported"}
+	hitChance := rng.Intn(12)// 1/12 chance to miss
+	hitmult := rng.Float64()
+	if moveStats.Accuracy <56{
+		return "low Accuracy"
+	}
+	
+	if moveStats.DamageClass.Name == "physical" {
+		if hitChance == 0 {
+			return "physical attack failed"
+		}
+		enemy_defense := enpokstat.Defense	
+		player_damage := plpokstat.Attack 
+		basedamage := int(float64((moveStats.Power *(player_damage/enemy_defense))+20)*hitmult)
+		if moveStats.Meta.CritRate > 1 && rng.Intn(16) < moveStats.Meta.CritRate{
+			movat.endamage = int(float64(basedamage)*1.5) 
+		}
+		movat.endamage = basedamage 
+		if moveStats.Meta.AilmentChance > 0 && rand.Intn(100) < moveStats.Meta.AilmentChance {
+			movat.enStatusEffect = moveStats.Meta.Ailment.Name
+		}
+	
+	}else if moveStats.DamageClass.Name == "special"{
+		if hitChance == 12 || hitChance ==7 {
+			return "Special Attack failed"
+		}
+		sed := enpokstat.SpecialDefense
+		spd := plpokstat.SpecialAttack
+		bd :=  int(float64((moveStats.Power *(spd/sed))+20)*hitmult)
+		if rng.Intn(24) < moveStats.Meta.CritRate{
+			movat.endamage = int(float64(bd)*1.5) 
+		}
+		movat.endamage = bd
+		if moveStats.Meta.AilmentChance > 0 && rand.Intn(100) < moveStats.Meta.AilmentChance {
+			movat.enStatusEffect = moveStats.Meta.Ailment.Name
+		}
+
+	}else if  moveStats.DamageClass.Name == "status"{
+		sed := enpokstat.SpecialDefense
+		spd := enpokstat.SpecialAttack
+		bd :=  int(float64((moveStats.Power *(spd/sed))+20)*hitmult)
+		if moveStats.Meta.CritRate>4 && rng.Intn(24) < moveStats.Meta.CritRate{
+			movat.endamage = int(float64(bd)*1.5) 
+		}
+		movat.endamage = bd
+		if moveStats.Meta.AilmentChance > 0 {
+			movat.enStatusEffect = moveStats.Meta.Ailment.Name}
+	}else{
+		return "Nothing there in moveStats"
+	}
+	
+	curhp:= enpokstat.CurHP
+	curhp = curhp - movat.endamage
+	if curhp < 0{
+		enpokstat.CurHP = 0
+	}
+	enpokstat.CurHP = curhp
+
+	return "Success"
+
+}
+
+
 type clearMessage struct{}
+
+type BattleLog struct{
+	logmsg 	 string
+	msgarr	 []string
+}
 
 type UserInventory struct{
 	PokeSprite				string
@@ -349,7 +447,38 @@ type UserInventory struct{
 	PokeDescriptions		[]string
 	ItemDescriptions		[]string
 	MoveDescriptions		[]string
+}
 
+type MoveAttack struct{
+	enStatusEffect	string
+	plStatusEffect	string
+	endamage			int
+	pldamage			int
+}
+
+type PlayerPokemonStats struct{
+	Level		   string
+	MaxHP          int
+	Attack         int
+	Defense        int
+	SpecialAttack  int
+	SpecialDefense int
+	Speed          int
+	CurHP		   int
+}
+
+type EnemyPokemonStats struct{
+	Name		   string
+	Level		   string
+	MaxHP          int
+	Attack         int
+	Defense        int
+	SpecialAttack  int
+	SpecialDefense int
+	Speed          int
+	CurHP		   int
+	BaseExperience int
+	Sprites		   string	
 }
 
 func InitInventoryListing() *UserInventory {
@@ -364,14 +493,76 @@ func InitInventoryListing() *UserInventory {
 	}
 }
 
+func InitBattlelogIniate() *BattleLog{
+	return &BattleLog{
+		logmsg:   "",
+		msgarr:   make([]string,40,200),
+	}
+}
 
+func InitMovatt() *MoveAttack{
+	return &MoveAttack{
+		enStatusEffect: "",
+		plStatusEffect: "",
+		endamage: 		0,
+		pldamage: 		0,
+	}
+}
+
+func InitPlpokeStats(values []string) *PlayerPokemonStats{
+	return &PlayerPokemonStats{
+		Level: values[0],
+		MaxHP: 			parseInt(values[1]),
+		Attack: 		parseInt(values[2]),
+		Defense:        parseInt(values[3]),
+		SpecialAttack:  parseInt(values[4]),
+		SpecialDefense: parseInt(values[5]),
+		Speed:          parseInt(values[6]),
+		CurHP:			parseInt(values[1]),		
+	}
+}
+
+func InitEnpokeStats(values []string) *EnemyPokemonStats {
+	return &EnemyPokemonStats{
+		Name:			values[0],
+		Level:          values[1],
+		MaxHP:          parseInt(values[2]),
+		Attack:         parseInt(values[3]),
+		Defense:        parseInt(values[4]),
+		SpecialAttack:  parseInt(values[5]),
+		SpecialDefense: parseInt(values[6]),
+		Speed:          parseInt(values[7]),
+		CurHP:          parseInt(values[8]),
+		BaseExperience: parseInt(values[9]),
+		Sprites: 		values[10],
+	}
+}
+
+func parseInt(value string) int {
+	i, err := strconv.Atoi(value)
+	if err != nil {
+		return 0
+	}
+	return i
+}
 
 func HealthBar(curHP,maxHP int)string{
+	if maxHP <= 0 {
+		return "Invalid maxHP" 
+	}
+
 	hpercent := float64(curHP)/float64(maxHP)
 	barwidth := 10
 
 	filledWidth :=int(hpercent*float64(barwidth))
+	if filledWidth < 0 {
+		filledWidth = 0
+	}else if filledWidth > barwidth { filledWidth = barwidth}
+	
 	emptyWidth:= barwidth - filledWidth
+	if emptyWidth < 0 {
+		emptyWidth = 0
+	}
 	
 	filledStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Background(lipgloss.Color("#004400"))
     emptyStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#555555")).Background(lipgloss.Color("#222222"))
@@ -428,13 +619,13 @@ func (m btBaseModel) View() string {
 		commandAttrContent := lipgloss.JoinHorizontal(lipgloss.Top, attributes...)
 
 		emptybox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).BorderForeground(lipgloss.Color("#008080")).Padding(0, 0).Width(10).Height(5).Align(lipgloss.Left).Render()
-		battlelog:= lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#008080")).Padding(0, 0).Width(37).Height(5).Align(lipgloss.Left).Render(commandAttrContent)
+		commandAttributes:= lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#008080")).Padding(0, 0).Width(37).Height(5).Align(lipgloss.Left).Render(commandAttrContent)
 		commandListBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("220")).Padding(0, 0).Width(20).Height(5).Align(lipgloss.Left).Render(commandBoxContent)
-		commandAttributes := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("220")).Padding(0,0).Width(81).Height(5).Align(lipgloss.Center).Render("Battle Log")
+		battlelog := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("220")).Padding(0,0).Width(81).Height(5).Align(lipgloss.Center).Render("Battle Log")
 
 		
 		commandBox := lipgloss.JoinHorizontal(lipgloss.Left,emptybox,commandListBox,
-			battlelog,commandAttributes)
+			commandAttributes,battlelog)
 
 		
 		enemyViewBox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0,0,0,0).Width(64).Height(15).Align(lipgloss.Center)
@@ -445,27 +636,25 @@ func (m btBaseModel) View() string {
 		
 
 		//enemy stats box
-		if len(m.PokemonList.Items)>4 {
-			hp,err := strconv.Atoi(m.PokemonList.Items[3])
-			if err!=nil{return "Error Converting"}
-			enemyhb := HealthBar(hp,hp)
-			elvlhb := lipgloss.JoinHorizontal(lipgloss.Left,m.PokemonList.Items[2]," ",enemyhb)
-			tlstats = lipgloss.JoinVertical(lipgloss.Top,cases.Title(language.Und, cases.NoLower).String((m.PokemonList.Items[0])),elvlhb)
-		}else{
-			tlstats = lipgloss.JoinVertical(lipgloss.Top,"Enemy Pokemon")
-		}		
+		
+		maxhp := m.enemy.MaxHP
+		curhp := m.enemy.CurHP
+		enemyhb := HealthBar(curhp,maxhp)
+		elvlhb := lipgloss.JoinHorizontal(lipgloss.Left,m.enemy.Level," ",enemyhb)
+		tlstats = lipgloss.JoinVertical(lipgloss.Top,cases.Title(language.Und, cases.NoLower).String((m.enemy.Name)),elvlhb)
+				
 		// player stats box
-		if len(m.UserInv.PokeDescriptions) > 0 {
-			hp,err := strconv.Atoi(m.UserInv.PokeDescriptions[1])
-			if err!=nil{return "Error Converting"}
-			playerhb := HealthBar(hp, hp)
-			plvlhb := lipgloss.JoinHorizontal(lipgloss.Left,m.UserInv.PokeDescriptions[0]," ",playerhb)
+		if 	m.player.MaxHP !=0 {
+			maxhp := m.player.MaxHP
+			curhp := m.player.CurHP
+			playerhb := HealthBar(curhp, maxhp)
+			plvlhb := lipgloss.JoinHorizontal(lipgloss.Left,m.player.Level," ",playerhb)
 			plstats = lipgloss.JoinVertical(lipgloss.Top, cases.Title(language.Und, cases.NoLower).String((m.UserInv.PokeName[m.selswitch])), plvlhb)
 		} else {
 			plstats = lipgloss.JoinVertical(lipgloss.Top, "Player 1")
 		}
 
-		topLeftPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(m.PokemonList.Items[1])
+		topLeftPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(m.enemy.Sprites)
 		topLeftStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#F25D94")).Render(tlstats)
 		
 		bottomRightPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.UserInv.PokeSprite)
