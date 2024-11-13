@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
+	"unicode"
+
 	// "os"
 	// "os/exec"
 	// "runtime"
@@ -250,7 +253,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showPoke = true
 				m.showmsg = true
 				m.attackstate = false
-				_,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
+				m.output,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
 				if m.enemy != nil{m.enemy = nil}
 				m.enemy = InitEnpokeStats(m.PokemonList.Items)
 				m.battleTarget = m.PokemonList.Items[0]
@@ -289,10 +292,21 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textInput.SetValue("")
 
 			}else if m.battlestate && m.attackstate{
+				var endev string
 				m.textInput.SetValue(m.UserInv.MoveDescriptions[m.selmove])
 				dev:= AttackStatsCalc(m.cfgState,m.textInput.Value(),m.MoAt,m.player,m.enemy)
 				m.output = fmt.Sprintf("%s,%d,%d,%s,%d,%s",m.textInput.Value(),m.player.MaxHP,m.player.Attack,m.UserInv.PokeName[m.selswitch],m.MoAt.endamage,dev)
-				m.attackstate = false
+				if dev == "Success"{
+					endev = enemyAttack(m.cfgState,m.enemy,m.player,m.MoAt)
+				}
+				if endev == dev{
+					m.output = "Turn complete"
+					m.attackstate = false
+				}else{
+					m.output = "Turn complete with missed attacks"
+					m.attackstate = false
+				}
+				
 				
 			}else {
 				m.output, m.locationList.Items = processCommand(m.textInput.Value(), m.cfgState)
@@ -428,6 +442,54 @@ func AttackStatsCalc(cfgState *config.ConfigState,MoveURL string,movat *MoveAtta
 	enpokstat.CurHP = curhp
 
 	return "Success"
+}
+
+func randFloat(min, max float64) float64 {
+    return min + rng.Float64()*(max-min)
+}
+
+func splitString(s string) (string, string) {
+    var index int
+    for i, r := range s {
+        if unicode.IsDigit(r) {
+            index = i
+            break
+        }
+    }
+    return s[:index], s[index:]
+}
+
+func enemyAttack(cfgState *config.ConfigState,enemy *EnemyPokemonStats,player *PlayerPokemonStats,move *MoveAttack) string{
+	moveurl := "https://pokeapi.co/api/v2/move/29"
+	moveStats, err := cfgState.PokeapiClient.InvokeMove(moveurl)
+	if err!=nil{return "Url at Fault"}
+	_,lvl := splitString(enemy.Level)
+	level, converr := strconv.Atoi(lvl)
+	if converr != nil{return "Unable to convert"}
+	attackMiss := rng.Intn(36)
+	a,b := 0.08, 0.29
+	enpower := randFloat(a,b)
+
+	if attackMiss != 29{
+		pdef := player.Defense	
+		edam := enemy.Attack 
+		basedamage := int((moveStats.Power *(edam/pdef))/int(math.Round((float64(level*10) * enpower))))
+		if moveStats.Meta.CritRate > 1 && rng.Intn(8) < moveStats.Meta.CritRate{
+			move.pldamage = int(float64(basedamage)*1.5) 
+		}
+		move.pldamage = basedamage 
+		if moveStats.Meta.AilmentChance > 0 && rand.Intn(100) < moveStats.Meta.AilmentChance {
+			move.plStatusEffect = moveStats.Meta.Ailment.Name
+		}
+	}
+
+	curhp := player.CurHP
+	curhp = curhp - move.pldamage
+	if curhp <=0{
+		player.CurHP =0
+	}else{player.CurHP = curhp}
+
+	return "Success"
 
 }
 
@@ -547,9 +609,6 @@ func parseInt(value string) int {
 }
 
 func HealthBar(curHP,maxHP int)string{
-	if maxHP <= 0 {
-		return "Invalid maxHP" 
-	}
 
 	hpercent := float64(curHP)/float64(maxHP)
 	barwidth := 10
@@ -695,8 +754,6 @@ func (m btBaseModel) View() string {
 		"[Press 'esc' to quit, 'up'/'down'/'right'/'left' to navigate, 'enter' to confirm]",
 	)
 }
-
-
 
 func processCommand(input string, cfgState *config.ConfigState) (string, []string) {
 	input = strings.TrimSpace(input)
