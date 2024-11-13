@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 	// "math/rand"
-	"os"
-	"os/exec"
-	"runtime"
+	// "os"
+	// "os/exec"
+	// "runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +20,8 @@ import (
 	"golang.org/x/text/language"
 )
 // var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+const cmdview = 5
+
 type btBaseModel struct {
 	textInput    	textinput.Model
 	output       	string
@@ -38,6 +40,7 @@ type btBaseModel struct {
 	selswitch		int
 	selmove			int
 	selitem			int
+	trackcomind		int
 }
 
 type Paginatedlisting struct {
@@ -47,19 +50,6 @@ type Paginatedlisting struct {
 }
 
 
-func clearScreen() {
-	var cmd *exec.Cmd
-
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("cmd", "/c", "cls")
-	default: 
-		cmd = exec.Command("clear")
-	}
-
-	cmd.Stdout = os.Stdout
-	_ = cmd.Run()
-}
 
 func takeInput(cfgState *config.ConfigState) btBaseModel {
 	ti := textinput.New()
@@ -79,11 +69,12 @@ func takeInput(cfgState *config.ConfigState) btBaseModel {
 		battleTarget: "",
 		showmsg:      false,
 		selCom: 	  0,
-		commands: 	  []string{"Attack", "Item", "Switch", "Catch", "Escape"},
+		commands: 	  []string{"Attack", "Item", "Switch", "Catch", "ViewStats", "Escape"},
 		attributes:   []string{},
 		selswitch: 	  0,
 		selmove: 	  0,
-		selitem: 	  0,	
+		selitem: 	  0,
+		trackcomind:  0,	
 	}
 }
 
@@ -96,7 +87,6 @@ func InitPaginatedListing(capmap int) *Paginatedlisting {
 }
 
 func (m btBaseModel) Init() tea.Cmd {
-	clearScreen()
 	return textinput.Blink
 }
 
@@ -106,7 +96,7 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "esc":
+		case "esc":
 			return m, tea.Quit
 		case "left":
 			switch m.commands[m.selCom] {
@@ -140,8 +130,11 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		
 		case "up":
-			if m.battlestate && m.selCom>0{
+			if m.battlestate && m.selCom>0{				
 				m.selCom --
+				if m.selCom < m.trackcomind{
+					m.trackcomind --
+				}
 			}
 			if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(),"inspect"){
 				if m.locationList.count == 0 {
@@ -182,6 +175,9 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down":
 			if m.battlestate && m.selCom <len(m.commands)-1{
 				m.selCom++
+				if m.selCom >= m.trackcomind+cmdview{
+					m.trackcomind++
+				}
 			}
 			if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(),"inspect"){
 				if m.locationList.count == 0 {
@@ -252,24 +248,24 @@ func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}else if m.battlestate{
 				
 				switch m.commands[m.selCom] {
-				case "Attack":
-					
+				case "Attack":					
 					m.UserInv.MoveName =nil
 					InventoryView(m.cfgState,m.UserInv,"move",m.selswitch)
 					m.attributes = m.UserInv.MoveName
 					m.output = fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selmove)
-				case "Item":
-					
+				case "Item":					
 					m.attributes = m.UserInv.ItemName
 					InventoryView(m.cfgState, m.UserInv,"item",m.selitem)					
 					m.output= fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selitem)
 				case "Switch":
-									
+					m.UserInv.PokeDescriptions = nil									
 					m.attributes = m.UserInv.PokeName										
 					InventoryView(m.cfgState,m.UserInv,"switch",m.selswitch)
 					m.output = fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selswitch)
 				case "Catch":
 					m.output = "Catching Pokemon, choose the balls!"
+				case "ViewStats":
+					m.output ="Displaying stats"
 				case "Escape":
 					m.output = "You escaped the battle!"
 					m.battlestate = false
@@ -305,6 +301,8 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 	}	
 	switch swcase{
 	case "fill":
+		uvin.PokeName=nil
+		uvin.ItemName =nil
 		for _,poke := range cfgState.PokemonCaught{
 			uvin.PokeName = append(uvin.PokeName, poke.Name)
 		}
@@ -314,8 +312,9 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 	case "switch":
 		for _, poke := range cfgState.PokemonCaught{
 			if poke.Name == uvin.PokeName[index]{
-				ascii_img, _ := imagegen.AsciiGen(poke.Sprites.FrontDefault,56)
+				ascii_img, _ := imagegen.AsciiGen(poke.Sprites.FrontDefault,52)
 				uvin.PokeSprite =  ascii_img
+				uvin.PokeDescriptions = append(uvin.PokeDescriptions, "LV1")
 				for _,stats := range poke.Stats{
 					uvin.PokeDescriptions = append(uvin.PokeDescriptions, strconv.Itoa(stats.BaseStat))
 				}
@@ -399,15 +398,16 @@ func (m btBaseModel) View() string {
 		}
 
 		// Battle HUD layout
-		commands := make([]string, len(m.commands))
-		for i, cmd := range m.commands {
+		visibleCommands := m.commands[m.trackcomind:min(m.trackcomind+cmdview,len(m.commands))]
+		viscom := make([]string, cmdview)
+		for i, cmd := range visibleCommands {
 			style := lipgloss.NewStyle().Bold(true)
-			if i == m.selCom {
+			if m.trackcomind+i == m.selCom {
 				style = style.Foreground(lipgloss.Color("220")).Underline(true)
 			} else {
 				style = style.Foreground(lipgloss.Color("240"))
 			}
-			commands[i] = style.Render("[" + cmd + "]")
+			viscom[i] = style.Render("[" + cmd + "]")
 		}
 		attributes := make([]string, len(m.attributes))
 		for i,attr := range m.attributes{
@@ -424,15 +424,19 @@ func (m btBaseModel) View() string {
 		var plstats string
 		var tlstats string
 
-		commandBoxContent := lipgloss.JoinVertical(lipgloss.Top, commands...)
+		commandBoxContent := lipgloss.JoinVertical(lipgloss.Top, viscom...)
 		commandAttrContent := lipgloss.JoinHorizontal(lipgloss.Top, attributes...)
 
-		battlelog:= lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#008080")).Padding(0, 0).Width(28).Height(5).Align(lipgloss.Left).Render("Battle Log")
+		emptybox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).BorderForeground(lipgloss.Color("#008080")).Padding(0, 0).Width(10).Height(5).Align(lipgloss.Left).Render()
+		battlelog:= lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#008080")).Padding(0, 0).Width(37).Height(5).Align(lipgloss.Left).Render(commandAttrContent)
 		commandListBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("220")).Padding(0, 0).Width(20).Height(5).Align(lipgloss.Left).Render(commandBoxContent)
-		commandAttributes := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("220")).Padding(0,0).Width(80).Height(5).Align(lipgloss.Center).Render(commandAttrContent)
+		commandAttributes := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("220")).Padding(0,0).Width(81).Height(5).Align(lipgloss.Center).Render("Battle Log")
 
-		commandBox := lipgloss.JoinHorizontal(lipgloss.Left,battlelog,commandListBox,commandAttributes)
+		
+		commandBox := lipgloss.JoinHorizontal(lipgloss.Left,emptybox,commandListBox,
+			battlelog,commandAttributes)
 
+		
 		enemyViewBox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0,0,0,0).Width(64).Height(15).Align(lipgloss.Center)
 		enemyStatusBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#00CFFF")).Padding(0,0,0,0).Width(40).Height(3).Align(lipgloss.Center)
 		
@@ -440,22 +444,23 @@ func (m btBaseModel) View() string {
 		playerStatusBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#F25D94")).Padding(0,0,0,0).Width(40).Height(3).Align(lipgloss.Center)
 		
 
-		
+		//enemy stats box
 		if len(m.PokemonList.Items)>4 {
 			hp,err := strconv.Atoi(m.PokemonList.Items[3])
 			if err!=nil{return "Error Converting"}
 			enemyhb := HealthBar(hp,hp)
-			lvlhb := lipgloss.JoinHorizontal(lipgloss.Left,m.PokemonList.Items[2]," ",enemyhb)
-			tlstats = lipgloss.JoinVertical(lipgloss.Top,cases.Title(language.Und, cases.NoLower).String((m.PokemonList.Items[0])),lvlhb)
+			elvlhb := lipgloss.JoinHorizontal(lipgloss.Left,m.PokemonList.Items[2]," ",enemyhb)
+			tlstats = lipgloss.JoinVertical(lipgloss.Top,cases.Title(language.Und, cases.NoLower).String((m.PokemonList.Items[0])),elvlhb)
 		}else{
 			tlstats = lipgloss.JoinVertical(lipgloss.Top,"Enemy Pokemon")
 		}		
-
+		// player stats box
 		if len(m.UserInv.PokeDescriptions) > 0 {
-			hp,err := strconv.Atoi(m.UserInv.PokeDescriptions[0])
+			hp,err := strconv.Atoi(m.UserInv.PokeDescriptions[1])
 			if err!=nil{return "Error Converting"}
 			playerhb := HealthBar(hp, hp)
-			plstats = lipgloss.JoinVertical(lipgloss.Top, cases.Title(language.Und, cases.NoLower).String((m.UserInv.PokeName[m.selswitch])), playerhb)
+			plvlhb := lipgloss.JoinHorizontal(lipgloss.Left,m.UserInv.PokeDescriptions[0]," ",playerhb)
+			plstats = lipgloss.JoinVertical(lipgloss.Top, cases.Title(language.Und, cases.NoLower).String((m.UserInv.PokeName[m.selswitch])), plvlhb)
 		} else {
 			plstats = lipgloss.JoinVertical(lipgloss.Top, "Player 1")
 		}
@@ -501,6 +506,7 @@ func (m btBaseModel) View() string {
 		"[Press 'esc' to quit, 'up'/'down'/'right'/'left' to navigate, 'enter' to confirm]",
 	)
 }
+
 
 
 func processCommand(input string, cfgState *config.ConfigState) (string, []string) {

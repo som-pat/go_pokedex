@@ -30,7 +30,7 @@ func call_battle(cfg_state *config.ConfigState, args ...string) (string,[]string
 		if ranlev ==0{ranlev =1}
 		cmdseq.WriteString(fmt.Sprintf("You have encounterd a WILD LV%d %s.....\n",ranlev,pokeDetails.Name))
 		cmdseq.WriteString(fmt.Sprintf("Initiating Battle sequence with %s.....\n\n",pokeDetails.Name))
-		ascii_img, err := imagegen.AsciiGen(pokeDetails.Sprites.FrontDefault,56)
+		ascii_img, err := imagegen.AsciiGen(pokeDetails.Sprites.FrontDefault,52)
 		if err != nil {
 			cmdseq.WriteString(" [Image Unavailable]\n")
 		}
@@ -42,7 +42,8 @@ func call_battle(cfg_state *config.ConfigState, args ...string) (string,[]string
 			statmult := 0.63
 			nstat := int(float64(stats.BaseStat) * math.Pow((1+statmult), float64(ranlev)))
 			carrier = append(carrier, strconv.Itoa(nstat))
-		}		
+		}
+		carrier = append(carrier, strconv.Itoa(pokeDetails.BaseExperience))
 	}
 
 	cmdseq.WriteString("Engaging")
