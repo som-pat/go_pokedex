@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sync"
 	"unicode"
 
 	// "os"
@@ -49,6 +50,9 @@ type btBaseModel struct {
 	selitem			int
 	trackcomind		int
 	attackstate		bool
+	turnComplete	chan bool
+	moveMutex		sync.Mutex
+
 }
 
 type Paginatedlisting struct {
@@ -59,12 +63,12 @@ type Paginatedlisting struct {
 
 
 
-func takeInput(cfgState *config.ConfigState) btBaseModel {
+func takeInput(cfgState *config.ConfigState) *btBaseModel {
 	ti := textinput.New()
 	ti.Focus()
 	ti.CharLimit = 100
 	ti.Width = 40
-	return btBaseModel{
+	return &btBaseModel{
 		textInput:    ti,
 		output:       "Welcome to PokeCLI!\nType 'explore' to search for Pokémon, 'catch' to catch one, or 'quit' to exit.",
 		cfgState:     cfgState,
@@ -87,7 +91,9 @@ func takeInput(cfgState *config.ConfigState) btBaseModel {
 		selitem: 	  0,
 		trackcomind:  0,
 		attackstate:  false,
-		MoAt: 		  &MoveAttack{},	
+		MoAt: 		  &MoveAttack{},
+		moveMutex:	  sync.Mutex{},	
+		turnComplete: make(chan bool),
 	}
 }
 
@@ -99,237 +105,247 @@ func InitPaginatedListing(capmap int) *Paginatedlisting {
 	}
 }
 
-func (m btBaseModel) Init() tea.Cmd {
+func (m *btBaseModel) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (m btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+	select {
+	case <-m.turnComplete:
+		m.attackstate = false
+		m.output += "\nTurn completed. Choose your next move."
+	default:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "esc":
+				return m, tea.Quit
+			case "left":
+				switch m.commands[m.selCom] {
+				case "Attack":
+					if m.selmove > 0 {
+						m.selmove--
+					}
+				case "Item":
+					if m.selitem > 0 {
+						m.selitem--
+					}
+				case "Switch":
+					if m.selswitch > 0 {
+						m.selswitch--
+					}
+				}
+			case "right":
+				switch m.commands[m.selCom] {
+				case "Attack":
+					if m.selmove < len(m.UserInv.MoveName)-1 {
+						m.selmove++
+					}
+				case "Item":
+					if m.selitem < len(m.UserInv.ItemName)-1 {
+						m.selitem++
+					}
+				case "Switch":
+					if m.selswitch < len(m.UserInv.PokeName)-1 {
+						m.selswitch++
+					}
+				}
+			
+			case "up":
+				if m.battlestate && m.selCom>0{				
+					m.selCom --
+					if m.selCom < m.trackcomind{
+						m.trackcomind --
+					}
+				}
+				if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(),"inspect"){
+					if m.locationList.count == 0 {
+						m.output = "Execute map first"
+						m.textInput.SetValue("")
+					}else{
+						if m.locationList.selectedIndex>0{
+							m.locationList.selectedIndex --
+						}else{
+							m.locationList.selectedIndex = m.locationList.count -1
+						}
+					}
+					fmt.Print(m.locationList.selectedIndex,m.showLoc)
+					if m.showLoc && strings.HasPrefix(m.textInput.Value(), "explore") {
+						selLoc := m.locationList.Items[m.locationList.selectedIndex]
+						m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
+					}else if m.showLoc && strings.HasPrefix(m.textInput.Value(),"inspect"){
+						selLoc := m.locationList.Items[m.locationList.selectedIndex]
+						m.textInput.SetValue(fmt.Sprintf("inspect %s",selLoc))
+					}
+				} else if strings.HasPrefix(m.textInput.Value(), "catch") {
+					if m.PokemonList.count == 0 {
+						m.output = "Selct a region to explore first"
+						m.textInput.SetValue("")
+					}else{
+						if m.PokemonList.selectedIndex > 0{
+							m.PokemonList.selectedIndex --
+						}else{
+							m.PokemonList.selectedIndex = m.PokemonList.count -1
+						}
+					}
+					fmt.Printf("Not gonna catch'em all,%d",m.PokemonList.selectedIndex)
+					if m.showPoke{
+						selPok := m.PokemonList.Items[m.PokemonList.selectedIndex]
+						m.textInput.SetValue(fmt.Sprintf("catch %s",selPok))
+					}
+				}
+			case "down":
+				if m.battlestate && m.selCom <len(m.commands)-1{
+					m.selCom++
+					if m.selCom >= m.trackcomind+cmdview{
+						m.trackcomind++
+					}
+				}
+				if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(),"inspect"){
+					if m.locationList.count == 0 {
+						m.output = "Execute map first"
+						m.textInput.SetValue("")
+					}else{
+						if m.locationList.selectedIndex < m.locationList.count -1{
+							m.locationList.selectedIndex ++
+						}else{
+							m.locationList.selectedIndex = 0
+						}
+					}
+					fmt.Print(m.locationList.selectedIndex,m.showLoc)
+					if m.showLoc && strings.HasPrefix(m.textInput.Value(), "explore") {
+						selLoc := m.locationList.Items[m.locationList.selectedIndex]
+						m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
+					}else if m.showLoc && strings.HasPrefix(m.textInput.Value(),"inspect"){
+						selLoc := m.locationList.Items[m.locationList.selectedIndex]
+						m.textInput.SetValue(fmt.Sprintf("inspect %s",selLoc))
+					}
+				} else if strings.HasPrefix(m.textInput.Value(), "catch") {
+					if m.PokemonList.count == 0 {
+						m.output = "Selct a region to explore first"
+						m.textInput.SetValue("")
+					} else{
+						if m.PokemonList.selectedIndex < m.PokemonList.count -1{
+							m.PokemonList.selectedIndex ++
+						}else{
+							m.PokemonList.selectedIndex = 0 
+						}
+					}
 
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc":
-			return m, tea.Quit
-		case "left":
-			switch m.commands[m.selCom] {
-			case "Attack":
-				if m.selmove > 0 {
-					m.selmove--
-				}
-			case "Item":
-				if m.selitem > 0 {
-					m.selitem--
-				}
-			case "Switch":
-				if m.selswitch > 0 {
-					m.selswitch--
-				}
-			}
-		case "right":
-			switch m.commands[m.selCom] {
-			case "Attack":
-				if m.selmove < len(m.UserInv.MoveName)-1 {
-					m.selmove++
-				}
-			case "Item":
-				if m.selitem < len(m.UserInv.ItemName)-1 {
-					m.selitem++
-				}
-			case "Switch":
-				if m.selswitch < len(m.UserInv.PokeName)-1 {
-					m.selswitch++
-				}
-			}
-		
-		case "up":
-			if m.battlestate && m.selCom>0{				
-				m.selCom --
-				if m.selCom < m.trackcomind{
-					m.trackcomind --
-				}
-			}
-			if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(),"inspect"){
-				if m.locationList.count == 0 {
-					m.output = "Execute map first"
-					m.textInput.SetValue("")
-				}else{
-					if m.locationList.selectedIndex>0{
-						m.locationList.selectedIndex --
-					}else{
-						m.locationList.selectedIndex = m.locationList.count -1
-					}
-				}
-				fmt.Print(m.locationList.selectedIndex,m.showLoc)
-				if m.showLoc && strings.HasPrefix(m.textInput.Value(), "explore") {
-					selLoc := m.locationList.Items[m.locationList.selectedIndex]
-					m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
-				}else if m.showLoc && strings.HasPrefix(m.textInput.Value(),"inspect"){
-					selLoc := m.locationList.Items[m.locationList.selectedIndex]
-					m.textInput.SetValue(fmt.Sprintf("inspect %s",selLoc))
-				}
-			} else if strings.HasPrefix(m.textInput.Value(), "catch") {
-				if m.PokemonList.count == 0 {
-					m.output = "Selct a region to explore first"
-					m.textInput.SetValue("")
-				}else{
-					if m.PokemonList.selectedIndex > 0{
-						m.PokemonList.selectedIndex --
-					}else{
-						m.PokemonList.selectedIndex = m.PokemonList.count -1
-					}
-				}
-				fmt.Printf("Not gonna catch'em all,%d",m.PokemonList.selectedIndex)
-				if m.showPoke{
+					fmt.Printf("Not gonna catch'em all,%d",m.PokemonList.selectedIndex)
+					if m.showPoke{
 					selPok := m.PokemonList.Items[m.PokemonList.selectedIndex]
 					m.textInput.SetValue(fmt.Sprintf("catch %s",selPok))
-				}
-			}
-		case "down":
-			if m.battlestate && m.selCom <len(m.commands)-1{
-				m.selCom++
-				if m.selCom >= m.trackcomind+cmdview{
-					m.trackcomind++
-				}
-			}
-			if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(),"inspect"){
-				if m.locationList.count == 0 {
-					m.output = "Execute map first"
-					m.textInput.SetValue("")
-				}else{
-					if m.locationList.selectedIndex < m.locationList.count -1{
-						m.locationList.selectedIndex ++
-					}else{
-						m.locationList.selectedIndex = 0
 					}
-				}
-				fmt.Print(m.locationList.selectedIndex,m.showLoc)
-				if m.showLoc && strings.HasPrefix(m.textInput.Value(), "explore") {
-					selLoc := m.locationList.Items[m.locationList.selectedIndex]
-					m.textInput.SetValue(fmt.Sprintf("explore %s",selLoc))
-				}else if m.showLoc && strings.HasPrefix(m.textInput.Value(),"inspect"){
-					selLoc := m.locationList.Items[m.locationList.selectedIndex]
-					m.textInput.SetValue(fmt.Sprintf("inspect %s",selLoc))
-				}
-			} else if strings.HasPrefix(m.textInput.Value(), "catch") {
-				if m.PokemonList.count == 0 {
-					m.output = "Selct a region to explore first"
-					m.textInput.SetValue("")
-				} else{
-					if m.PokemonList.selectedIndex < m.PokemonList.count -1{
-						m.PokemonList.selectedIndex ++
-					}else{
-						m.PokemonList.selectedIndex = 0 
-					}
-				}
+				} 
+			case "enter":
+				m.locationList.selectedIndex = 0
+				m.PokemonList.selectedIndex = 0
+				m.output =""
 
-				fmt.Printf("Not gonna catch'em all,%d",m.PokemonList.selectedIndex)
-				if m.showPoke{
-				selPok := m.PokemonList.Items[m.PokemonList.selectedIndex]
-				m.textInput.SetValue(fmt.Sprintf("catch %s",selPok))
-				}
-			} 
-		case "enter":
-			m.locationList.selectedIndex = 0
-			m.PokemonList.selectedIndex = 0
-			m.output =""
-
-			if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(), "scout") {				
-				m.output, m.PokemonList.Items = processCommand(m.textInput.Value(), m.cfgState)
-				m.showPoke =true
-				m.showLoc = false
-				m.battlestate = false
-				m.showmsg = false
-				m.attackstate = false
-				m.textInput.SetValue("") 
-
-			}else if strings.HasPrefix(m.textInput.Value(),"battle") {
-				if m.UserInv == nil{
-					m.UserInv = InitInventoryListing()					
-				}
-				InventoryView(m.cfgState,m.UserInv,"fill",0)
-				m.battlestate = true
-				m.showLoc = false
-				m.showPoke = true
-				m.showmsg = true
-				m.attackstate = false
-				m.output,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
-				if m.enemy != nil{m.enemy = nil}
-				m.enemy = InitEnpokeStats(m.PokemonList.Items)
-				m.battleTarget = m.PokemonList.Items[0]
-				m.PokemonList.Items = nil			
-				m.textInput.SetValue("")
-				return m, tea.Tick(3*time.Second, func(_ time.Time) tea.Msg {
-					return clearMessage{}
-				})
-
-			}else if m.battlestate && !m.attackstate{				
-				switch m.commands[m.selCom] {
-				case "Attack":					
-					m.UserInv.MoveName =nil
-					InventoryView(m.cfgState,m.UserInv,"move",m.selswitch)
-					m.attributes = m.UserInv.MoveName
-					m.attackstate = true
-					m.output = fmt.Sprintf("Switching from the %d available ones,at %d,link %s",len(m.attributes),m.selmove,m.UserInv.MoveDescriptions[m.selmove])
-				case "Item":					
-					m.attributes = m.UserInv.ItemName
-					InventoryView(m.cfgState, m.UserInv,"item",m.selitem)					
-					m.output= fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selitem)
-				case "Switch":
-					m.player = nil								
-					m.attributes = m.UserInv.PokeName										
-					InventoryView(m.cfgState,m.UserInv,"switch",m.selswitch)
-					m.player = InitPlpokeStats(m.UserInv.PokeDescriptions)
-					m.output = fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selswitch)
-				case "Catch":
-					m.output = "Catching Pokemon, choose the balls!"
-				case "ViewStats":
-					m.output ="Displaying stats"
-				case "Escape":
-					m.output = "You escaped the battle!"
+				if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(), "scout") {				
+					m.output, m.PokemonList.Items = processCommand(m.textInput.Value(), m.cfgState)
+					m.showPoke =true
+					m.showLoc = false
 					m.battlestate = false
-				}
-				m.textInput.SetValue("")
+					m.showmsg = false
+					m.attackstate = false
+					m.textInput.SetValue("") 
 
-			}else if m.battlestate && m.attackstate{
-				var endev string
-				m.textInput.SetValue(m.UserInv.MoveDescriptions[m.selmove])
-				dev:= AttackStatsCalc(m.cfgState,m.textInput.Value(),m.MoAt,m.player,m.enemy)
-				m.output = fmt.Sprintf("%s,%d,%d,%s,%d,%s",m.textInput.Value(),m.player.MaxHP,m.player.Attack,m.UserInv.PokeName[m.selswitch],m.MoAt.endamage,dev)
-				if dev == "Success"{
-					endev = enemyAttack(m.cfgState,m.enemy,m.player,m.MoAt)
-				}
-				if endev == dev{
-					m.output = "Turn complete"
+				}else if strings.HasPrefix(m.textInput.Value(),"battle") {
+					
+					if m.UserInv == nil{
+						m.UserInv = InitInventoryListing()					
+					}
+					InventoryView(m.cfgState,m.UserInv,"fill",0)
+					m.battlestate = true
+					m.showLoc = false
+					m.showPoke = true
+					m.showmsg = true
 					m.attackstate = false
-				}else{
-					m.output = "Turn complete with missed attacks"
+					m.output,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
+					if m.enemy != nil{m.enemy = nil}
+					m.enemy = InitEnpokeStats(m.PokemonList.Items)
+					m.battleTarget = m.enemy.Name
+					m.PokemonList.Items = nil			
+					m.textInput.SetValue("")
+					return m, tea.Tick(3*time.Second, func(_ time.Time) tea.Msg {
+						return clearMessage{}
+					})
+
+				}else if m.battlestate && !m.attackstate{				
+					switch m.commands[m.selCom] {
+					case "Attack":					
+						m.UserInv.MoveName =nil
+						InventoryView(m.cfgState,m.UserInv,"move",m.selswitch)
+						m.attributes = m.UserInv.MoveName
+						m.attackstate = true
+						if m.player.CurHP >0{
+							go m.AttackSequence()
+						}else{
+							m.selCom+=2
+						}
+					case "Item":					
+						m.attributes = m.UserInv.ItemName
+						InventoryView(m.cfgState, m.UserInv,"item",m.selitem)					
+						m.output= fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selitem)
+
+					case "Switch":
+						m.player = nil								
+						m.attributes = m.UserInv.PokeName										
+						InventoryView(m.cfgState,m.UserInv,"switch",m.selswitch)
+						m.player = InitPlpokeStats(m.UserInv.PokeDescriptions)
+						m.output = fmt.Sprintf("Switching from the %d available ones,at %d",len(m.attributes),m.selswitch)
+					case "Catch":
+						m.output = "Catching Pokemon, choose the balls!"
+					case "ViewStats":
+						m.output ="Displaying stats"
+					case "Escape":
+						m.output = "You escaped the battle!"
+						m.battlestate = false
+					}
+					m.textInput.SetValue("")
+
+				// }else if m.battlestate && m.attackstate{
+				// 	var endev string
+				// 	m.textInput.SetValue(m.UserInv.MoveDescriptions[m.selmove])
+				// 	dev:= playerAttack(m.cfgState,m.textInput.Value(),m.MoAt,m.player,m.enemy)
+				// 	m.output = fmt.Sprintf("%s,%d,%d,%s,%d,%s",m.textInput.Value(),m.player.MaxHP,m.player.Attack,m.UserInv.PokeName[m.selswitch],m.MoAt.endamage,dev)
+				// 	if dev == "Success"{
+				// 		endev = enemyAttack(m.cfgState,m.enemy,m.player,m.MoAt)
+				// 	}
+				// 	if endev == dev{
+				// 		m.output = "Turn complete"
+				// 		m.attackstate = false
+				// 	}else{
+				// 		m.output = "Turn complete with missed attacks"
+				// 		m.attackstate = false
+				// 	}
+					
+					
+				}else {
+					m.output, m.locationList.Items = processCommand(m.textInput.Value(), m.cfgState)
+					m.locationList.count = len(m.locationList.Items)
+					m.showPoke =false
+					m.showLoc = true
+					m.battlestate = false
+					m.showmsg = false
 					m.attackstate = false
-				}
-				
-				
-			}else {
-				m.output, m.locationList.Items = processCommand(m.textInput.Value(), m.cfgState)
-				m.locationList.count = len(m.locationList.Items)
-				m.showPoke =false
-				m.showLoc = true
-				m.battlestate = false
-				m.showmsg = false
-				m.attackstate = false
-				m.textInput.SetValue("")
-			}		
+					m.textInput.SetValue("")
+				}		
+			}
+		case clearMessage:
+			// Clears the initial battle message and switch to the battle HUD
+			m.showmsg = false
+			m.output = ""
+			return m, cmd
 		}
-	case clearMessage:
-		// Clears the initial battle message and switch to the battle HUD
-		m.showmsg = false
-		m.output = ""
-		return m, cmd
-	}
 
 	m.textInput, cmd = m.textInput.Update(msg)
-	return m, cmd
+	}
+	return m,cmd
 }
-
 
 func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase string, index int){
 	if len(cfgState.PokemonCaught) == 0 && len(cfgState.ItemsHeld) == 0{
@@ -379,8 +395,21 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 	}	
 }
 
+func(m *btBaseModel) AttackSequence(){
+	m.moveMutex.Lock()
+	defer m.moveMutex.Unlock()
+	m.textInput.SetValue(m.UserInv.MoveDescriptions[m.selmove])
+	plres := playerAttack(m.cfgState,m.textInput.Value(),m.MoAt,m.player,m.enemy)
+	m.output += fmt.Sprintf("Player's attack result: %s", plres)
+	if m.enemy.CurHP >0{
+		enres := enemyAttack(m.cfgState,m.enemy,m.player,m.MoAt)
+		m.output += fmt.Sprintf("Player's attack result: %s", enres)
+	}
+	m.turnComplete <-true
+}
 
-func AttackStatsCalc(cfgState *config.ConfigState,MoveURL string,movat *MoveAttack, plpokstat *PlayerPokemonStats, enpokstat *EnemyPokemonStats) string{
+
+func playerAttack(cfgState *config.ConfigState,MoveURL string,movat *MoveAttack, plpokstat *PlayerPokemonStats, enpokstat *EnemyPokemonStats) string{
 	
 	moveStats, err := cfgState.PokeapiClient.InvokeMove(MoveURL)
 	if err!=nil { return  "Move values not imported"}
@@ -633,7 +662,7 @@ func HealthBar(curHP,maxHP int)string{
 
 }
 
-func (m btBaseModel) View() string {
+func (m *btBaseModel) View() string {
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("35"))
 	screenHeight := 41	
 	outputLines := strings.Split(m.output, "\n")
