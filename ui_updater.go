@@ -65,9 +65,10 @@ type Paginatedlisting struct {
 
 func takeInput(cfgState *config.ConfigState) *btBaseModel {
 	ti := textinput.New()
+	ti.Placeholder = "[Press 'esc' to quit, 'up'/'down'/'right'/'left' to navigate, 'enter' to confirm]"
 	ti.Focus()
-	ti.CharLimit = 100
-	ti.Width = 40
+	ti.CharLimit = 200
+	ti.Width = 200
 	return &btBaseModel{
 		textInput:    ti,
 		output:       "Welcome to PokeCLI!\nType 'explore' to search for Pokémon, 'catch' to catch one, or 'quit' to exit.",
@@ -782,11 +783,11 @@ func (m *btBaseModel) View() string {
 	
 
 	return fmt.Sprintf(
-		"%s\n%s\n%s %s\n\n%s\n",
+		"%s\n%s\n\n%s %s\n\n",
 		headerStyle.Render(m.output),
 		padding,
 		"Pokedex", m.textInput.View(),
-		"[Press 'esc' to quit, 'up'/'down'/'right'/'left' to navigate, 'enter' to confirm]",
+		//"[Press 'esc' to quit, 'up'/'down'/'right'/'left' to navigate, 'enter' to confirm]",
 	)
 }
 
