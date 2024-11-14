@@ -7,6 +7,8 @@ import (
 
 	"github.com/som-pat/poke_dex/imagegen"
 	"github.com/som-pat/poke_dex/internal/config"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func call_pokeInspect(cfg_state *config.ConfigState, args ...string) (string, []string, error) {
@@ -18,25 +20,31 @@ func call_pokeInspect(cfg_state *config.ConfigState, args ...string) (string, []
 	pokemon, ok := cfg_state.PokemonCaught[toInspect]
 	if ok {
 		var pokedetails strings.Builder
-		ascii_img, err := imagegen.AsciiGen(pokemon.Sprites.FrontDefault,52)
+		var pokecol []string
+		ascii_img, err := imagegen.AsciiGen(pokemon.Sprites.FrontDefault,84)
 		if err != nil {
 			pokedetails.WriteString(" [Image Unavailable]\n")
 		}
-		pokedetails.WriteString(ascii_img + "\n")
+		pokecol = append(pokecol, ascii_img)
 
-		pokedetails.WriteString(fmt.Sprintf("Name: %s \n", pokemon.Name))
+		pokedetails.WriteString(fmt.Sprintf("Name: %s \n", cases.Title(language.Und, cases.NoLower).String(pokemon.Name)))
 		pokedetails.WriteString(fmt.Sprintf("Height: %d \n", pokemon.Height))
 		pokedetails.WriteString(fmt.Sprintf("Weight:%d \n", pokemon.Weight))
+
+
+
 		pokedetails.WriteString("Stats:\n")
 		for _, stat := range pokemon.Stats {
 			pokedetails.WriteString(fmt.Sprintf("  -%s: %v\n", stat.Stat.Name, stat.BaseStat))
+
 		}
 		pokedetails.WriteString("Types:")
 		for _, typeInfo := range pokemon.Types {
 			pokedetails.WriteString(fmt.Sprintf(" %s,", typeInfo.Type.Name))
+
 		}
 
-		return pokedetails.String(), nil, nil
+		return pokedetails.String(), pokecol, nil
 	}
 	helditem, ok := cfg_state.ItemsHeld[toInspect]
 	if !ok {

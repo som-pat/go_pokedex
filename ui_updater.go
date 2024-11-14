@@ -53,7 +53,7 @@ type btBaseModel struct {
 	moveMutex		sync.Mutex
 	logchannel   	chan string
 	battlelog       []string
-
+	showinspect		bool
 }
 
 type Paginatedlisting struct {
@@ -99,7 +99,8 @@ func takeInput(cfgState *config.ConfigState) *btBaseModel {
 		moveMutex:	  sync.Mutex{},	
 		turnComplete: make(chan bool,1),
 		logchannel:	  make(chan string,4),
-		battlelog:    []string{},	  
+		battlelog:    []string{},
+		showinspect:  false,	  
 	}
 }
 
@@ -281,6 +282,7 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if strings.HasPrefix(m.textInput.Value(), "explore") || strings.HasPrefix(m.textInput.Value(), "scout") {				
 					m.output, m.PokemonList.Items = processCommand(m.textInput.Value(), m.cfgState)
 					m.PokemonList.count = len(m.PokemonList.Items)
+					m.showinspect = false
 					m.showPoke =true
 					m.showLoc = false
 					m.battlestate = false
@@ -299,6 +301,7 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.showPoke = true
 					m.showmsg = true
 					m.attackstate = false
+					m.showinspect = false
 					m.output,m.PokemonList.Items = processCommand(m.textInput.Value(),m.cfgState)
 					if m.enemy != nil{m.enemy = nil}
 					m.enemy = InitEnpokeStats(m.PokemonList.Items)
@@ -365,8 +368,11 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}else {
 					m.output, m.locationList.Items = processCommand(m.textInput.Value(), m.cfgState)
 					m.locationList.count = len(m.locationList.Items)
-					m.showPoke =false
+					m.showinspect =false
+					part := strings.Split(m.textInput.Value(), " ")
+					if part[0] =="inspect"{m.showinspect = true}
 					m.showLoc = true
+					m.showPoke =false				
 					m.battlestate = false
 					m.showmsg = false
 					m.attackstate = false
@@ -536,7 +542,7 @@ func randFloat(min, max float64) float64 {
     return min + rng.Float64()*(max-min)
 }
 
-func splitString(s string) (string, string) {
+func DigsplitString(s string) (string, string) {
     var index int
     for i, r := range s {
         if unicode.IsDigit(r) {
@@ -551,7 +557,7 @@ func enemyAttack(cfgState *config.ConfigState,enemy *EnemyPokemonStats,player *P
 	moveurl := "https://pokeapi.co/api/v2/move/29"
 	moveStats, err := cfgState.PokeapiClient.InvokeMove(moveurl)
 	if err!=nil{return "Url at Fault"}
-	_,lvl := splitString(enemy.Level)
+	_,lvl := DigsplitString(enemy.Level)
 	level, converr := strconv.Atoi(lvl)
 	if converr != nil{return "Unable to convert"}
 	attackMiss := rng.Intn(36)
@@ -797,8 +803,7 @@ func (m *btBaseModel) View() string {
 		curhp := m.enemy.CurHP
 		enemyhb := HealthBar(curhp,maxhp)
 		elvlhb := lipgloss.JoinHorizontal(lipgloss.Left,m.enemy.Level," ",enemyhb)
-		tlstats = lipgloss.JoinVertical(lipgloss.Top,cases.Title(language.Und, cases.NoLower).
-					String((m.enemy.Name)),elvlhb)
+		tlstats = lipgloss.JoinVertical(lipgloss.Top,cases.Title(language.Und, cases.NoLower).String((m.enemy.Name)),elvlhb)
 				
 		// player stats box
 		if 	m.player.MaxHP !=0 {
@@ -855,7 +860,21 @@ func (m *btBaseModel) View() string {
 						m.output,
 						"\n", m.textInput.View(),
 				)
-	}
+	}else if m.showinspect{
+		eb := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).BorderForeground(lipgloss.Color("220")).
+		Padding(0).Width(20).Height(21).Align(lipgloss.Top).Render()
+		InspectImage := lipgloss.NewStyle().Border(lipgloss.DoubleBorder()).BorderForeground(lipgloss.Color("220")).
+									Padding(0).Width(82).Height(21).Align(lipgloss.Left).Render(m.locationList.Items[0])
+		
+		Inspectelem := lipgloss.NewStyle().Border(lipgloss.DoubleBorder()).BorderForeground(lipgloss.Color("220")).
+		Padding(2).Width(28).Height(21).Align(lipgloss.Top).Render(m.output)
+
+		inspectbox := lipgloss.JoinHorizontal(lipgloss.Left, eb ,InspectImage, Inspectelem)
+		
+		return lipgloss.JoinVertical(lipgloss.Top,
+									 inspectbox,
+									 "\n",m.textInput.View(),)	
+	} 
 	
 
 	return fmt.Sprintf(
