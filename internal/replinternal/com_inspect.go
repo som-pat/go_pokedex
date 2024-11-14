@@ -18,7 +18,7 @@ func call_pokeInspect(cfg_state *config.ConfigState, args ...string) (string, []
 	pokemon, ok := cfg_state.PokemonCaught[toInspect]
 	if ok {
 		var pokedetails strings.Builder
-		ascii_img, err := imagegen.AsciiGen(pokemon.Sprites.FrontDefault,64)
+		ascii_img, err := imagegen.AsciiGen(pokemon.Sprites.FrontDefault,52)
 		if err != nil {
 			pokedetails.WriteString(" [Image Unavailable]\n")
 		}
