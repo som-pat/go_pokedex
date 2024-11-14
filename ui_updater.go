@@ -33,7 +33,7 @@ type btBaseModel struct {
 	locationList 	*Paginatedlisting
 	PokemonList  	*Paginatedlisting
 	UserInv			*UserInventory
-	batlog 			*BattleLog
+	// batlog 			*BattleLog
 	MoAt			*MoveAttack
 	enemy			*EnemyPokemonStats
 	player			*PlayerPokemonStats
@@ -52,6 +52,8 @@ type btBaseModel struct {
 	attackstate		bool
 	turnComplete	chan bool
 	moveMutex		sync.Mutex
+	logchannel   	chan string
+	battlelog       []string
 
 }
 
@@ -61,7 +63,9 @@ type Paginatedlisting struct {
 	selectedIndex int
 }
 
-
+type LogMessage struct{
+	log 	string
+}
 
 func takeInput(cfgState *config.ConfigState) *btBaseModel {
 	ti := textinput.New()
@@ -76,7 +80,7 @@ func takeInput(cfgState *config.ConfigState) *btBaseModel {
 		locationList: InitPaginatedListing(20),
 		PokemonList:  InitPaginatedListing(40),
 		UserInv: 	  &UserInventory{},
-		batlog: 	  InitBattlelogIniate(),
+		// batlog: 	  InitBattlelogIniate(),
 		enemy: 		  &EnemyPokemonStats{},
 		player:		  &PlayerPokemonStats{},		
 		showLoc: 	  false,
@@ -95,6 +99,8 @@ func takeInput(cfgState *config.ConfigState) *btBaseModel {
 		MoAt: 		  &MoveAttack{},
 		moveMutex:	  sync.Mutex{},	
 		turnComplete: make(chan bool),
+		logchannel:	  make(chan string),
+		battlelog:    []string{},	  
 	}
 }
 
@@ -115,9 +121,14 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	select {
 	case <-m.turnComplete:
 		m.attackstate = false
-		m.output += "\nTurn completed. Choose your next move."
+		m.logchannel <-"Turn complete. Choose your next move."
 	default:
 		switch msg := msg.(type) {
+		case LogMessage:
+			m.battlelog = append(m.battlelog, msg.log)
+			if len(m.battlelog) > 10{
+				m.battlelog = m.battlelog[len(m.battlelog)-10:]
+			} 
 		case tea.KeyMsg:
 			switch msg.String() {
 			case "esc":
@@ -339,6 +350,14 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.output = ""
 			return m, cmd
 		}
+		select {
+		case logMsg := <-m.logchannel:
+			return m, func() tea.Msg {
+				return LogMessage{log: logMsg}
+			}
+		default:
+			// No new message, continue with other updates
+		}
 
 	m.textInput, cmd = m.textInput.Update(msg)
 	}
@@ -406,12 +425,19 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 func(m *btBaseModel) AttackSequence(){
 	m.moveMutex.Lock()
 	defer m.moveMutex.Unlock()
+	m.logchannel <-"Player attacks.."
+	// time.Sleep(1 *time.Microsecond)
 	m.textInput.SetValue(m.UserInv.MoveDescriptions[m.selmove])
 	plres := playerAttack(m.cfgState,m.textInput.Value(),m.MoAt,m.player,m.enemy)
-	m.output += fmt.Sprintf("Player's attack result: %s", plres)
+	m.logchannel <- fmt.Sprintf("Player's attack result: %s \t", plres)
+	m.output += fmt.Sprintf("Player's attack result: %s \t", plres)
+	// time.Sleep(1 *time.Second)
 	if m.enemy.CurHP >0{
+		m.logchannel <- "Enemy attacks..."
+		// time.Sleep(1*time.Microsecond)
 		enres := enemyAttack(m.cfgState,m.enemy,m.player,m.MoAt)
-		m.output += fmt.Sprintf("Enemy's attack result: %s", enres)
+		m.logchannel <- fmt.Sprintf("Enemy's attack result: %s", enres)
+		// m.output += fmt.Sprintf("Enemy's attack result: %s", enres)
 	}
 	m.turnComplete <-true
 }
@@ -478,7 +504,7 @@ func playerAttack(cfgState *config.ConfigState,MoveURL string,movat *MoveAttack,
 	}
 	enpokstat.CurHP = curhp
 
-	return "Success"
+	return fmt.Sprintf("Success %d",movat.endamage)
 }
 
 func randFloat(min, max float64) float64 {
@@ -533,10 +559,10 @@ func enemyAttack(cfgState *config.ConfigState,enemy *EnemyPokemonStats,player *P
 
 type clearMessage struct{}
 
-type BattleLog struct{
-	logmsg 	 string
-	msgarr	 []string
-}
+// type BattleLog struct{
+// 	logmsg 	 string
+// 	msgarr	 []string
+// }
 
 type UserInventory struct{
 	PokeSprite				string
@@ -592,12 +618,12 @@ func InitInventoryListing() *UserInventory {
 	}
 }
 
-func InitBattlelogIniate() *BattleLog{
-	return &BattleLog{
-		logmsg:   "",
-		msgarr:   make([]string,40,200),
-	}
-}
+// func InitBattlelogIniate() *BattleLog{
+// 	return &BattleLog{
+// 		logmsg:   "",
+// 		msgarr:   make([]string,40,200),
+// 	}
+// }
 
 func InitMovatt() *MoveAttack{
 	return &MoveAttack{
@@ -713,11 +739,12 @@ func (m *btBaseModel) View() string {
 
 		commandBoxContent := lipgloss.JoinVertical(lipgloss.Top, viscom...)
 		commandAttrContent := lipgloss.JoinHorizontal(lipgloss.Top, attributes...)
+		logContent := lipgloss.JoinVertical(lipgloss.Left, m.battlelog...)
 
-		emptybox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).BorderForeground(lipgloss.Color("#008080")).Padding(0, 0).Width(10).Height(5).Align(lipgloss.Left).Render()
-		commandAttributes:= lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#008080")).Padding(0, 0).Width(37).Height(5).Align(lipgloss.Left).Render(commandAttrContent)
+		emptybox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0, 0).Width(10).Height(5).Align(lipgloss.Left).Render()
+		commandAttributes:= lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("220")).Padding(0, 0).Width(37).Height(5).Align(lipgloss.Left).Render(commandAttrContent)
 		commandListBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("220")).Padding(0, 0).Width(20).Height(5).Align(lipgloss.Left).Render(commandBoxContent)
-		battlelog := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("220")).Padding(0,0).Width(72).Height(5).Align(lipgloss.Center).Render("Battle Log")
+		battlelog := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("#008080")).Padding(0,0).Width(64).Height(5).Align(lipgloss.Center).Render(logContent)
 
 		
 		commandBox := lipgloss.JoinHorizontal(lipgloss.Left,emptybox,commandListBox,
