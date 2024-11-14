@@ -33,7 +33,6 @@ type btBaseModel struct {
 	locationList 	*Paginatedlisting
 	PokemonList  	*Paginatedlisting
 	UserInv			*UserInventory
-	// batlog 			*BattleLog
 	MoAt			*MoveAttack
 	enemy			*EnemyPokemonStats
 	player			*PlayerPokemonStats
@@ -98,8 +97,8 @@ func takeInput(cfgState *config.ConfigState) *btBaseModel {
 		attackstate:  false,
 		MoAt: 		  &MoveAttack{},
 		moveMutex:	  sync.Mutex{},	
-		turnComplete: make(chan bool),
-		logchannel:	  make(chan string),
+		turnComplete: make(chan bool,1),
+		logchannel:	  make(chan string,4),
 		battlelog:    []string{},	  
 	}
 }
@@ -116,19 +115,41 @@ func (m *btBaseModel) Init() tea.Cmd {
 	return textinput.Blink
 }
 
+func (m *btBaseModel) startLogging(){
+	go m.processLogs()
+}
+
+func (m *btBaseModel) processLogs(){
+	for logMsg := range m.logchannel {
+		if m.battlestate { // Log messages only if in battle state
+			m.battlelog = append(m.battlelog, logMsg)
+			if len(m.battlelog) > 5 {
+				m.battlelog = m.battlelog[len(m.battlelog)-5:] // Keep only the last 5 messages
+			}
+		}else{
+			return
+		}
+	}
+}
+
+
 func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	select {
 	case <-m.turnComplete:
 		m.attackstate = false
 		m.logchannel <-"Turn complete. Choose your next move."
+	
+	case logMsg := <-m.logchannel:
+		if m.battlestate{
+		return m, func() tea.Msg {
+			return LogMessage{log: logMsg}
+			}
+		}	
 	default:
 		switch msg := msg.(type) {
 		case LogMessage:
-			m.battlelog = append(m.battlelog, msg.log)
-			if len(m.battlelog) > 10{
-				m.battlelog = m.battlelog[len(m.battlelog)-10:]
-			} 
+			return m,cmd
 		case tea.KeyMsg:
 			switch msg.String() {
 			case "esc":
@@ -286,7 +307,8 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return clearMessage{}
 					})
 
-				}else if m.battlestate && !m.attackstate{				
+				}else if m.battlestate && !m.attackstate{
+					m.startLogging()				
 					switch m.commands[m.selCom] {
 					case "Attack":					
 						m.UserInv.MoveName =nil
@@ -311,10 +333,13 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					case "ViewStats":
 						m.output ="Displaying stats"
 					case "Escape":
-						m.output = "You escaped the battle!"
 						m.battlestate = false
+						m.battlelog = nil
+						m.attackstate = false
+						m.output = "You escaped the battle!"
 					}
 					m.textInput.SetValue("")
+					return m, cmd
 
 				// }else if m.battlestate && m.attackstate{
 				// 	var endev string
@@ -350,14 +375,7 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.output = ""
 			return m, cmd
 		}
-		select {
-		case logMsg := <-m.logchannel:
-			return m, func() tea.Msg {
-				return LogMessage{log: logMsg}
-			}
-		default:
-			// No new message, continue with other updates
-		}
+		
 
 	m.textInput, cmd = m.textInput.Update(msg)
 	}
@@ -366,10 +384,14 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *btBaseModel) handleSwitch() {
 	m.player = nil
-	m.attributes = m.UserInv.PokeName
-	InventoryView(m.cfgState, m.UserInv, "switch", m.selswitch)
-	m.player = InitPlpokeStats(m.UserInv.PokeDescriptions)
-	m.output = fmt.Sprintf("Switching from the %d available ones, at %d", len(m.attributes), m.selswitch)
+	if len(m.UserInv.PokeName)>0{
+		m.attributes = m.UserInv.PokeName
+		InventoryView(m.cfgState, m.UserInv, "switch", m.selswitch)
+		m.player = InitPlpokeStats(m.UserInv.PokeDescriptions)
+		m.output = fmt.Sprintf("Switching from the %d available ones, at %d", len(m.attributes), m.selswitch)
+	}else{
+		m.logchannel <- "No pokemon to switch with"
+	}
 }
 
 
@@ -426,15 +448,15 @@ func(m *btBaseModel) AttackSequence(){
 	m.moveMutex.Lock()
 	defer m.moveMutex.Unlock()
 	m.logchannel <-"Player attacks.."
-	// time.Sleep(1 *time.Microsecond)
+	// time.Sleep(10 *time.Microsecond)
 	m.textInput.SetValue(m.UserInv.MoveDescriptions[m.selmove])
-	plres := playerAttack(m.cfgState,m.textInput.Value(),m.MoAt,m.player,m.enemy)
-	m.logchannel <- fmt.Sprintf("Player's attack result: %s \t", plres)
-	m.output += fmt.Sprintf("Player's attack result: %s \t", plres)
+	plres,dam := playerAttack(m.cfgState,m.textInput.Value(),m.MoAt,m.player,m.enemy)
+	m.logchannel <- fmt.Sprintf("Player's attack result: %d ", dam)
+	// m.output += fmt.Sprintf("Player's attack result: %s \t", plres)
 	// time.Sleep(1 *time.Second)
-	if m.enemy.CurHP >0{
+	if plres =="Success"{
 		m.logchannel <- "Enemy attacks..."
-		// time.Sleep(1*time.Microsecond)
+		// time.Sleep(10*time.Microsecond)
 		enres := enemyAttack(m.cfgState,m.enemy,m.player,m.MoAt)
 		m.logchannel <- fmt.Sprintf("Enemy's attack result: %s", enres)
 		// m.output += fmt.Sprintf("Enemy's attack result: %s", enres)
@@ -443,19 +465,19 @@ func(m *btBaseModel) AttackSequence(){
 }
 
 
-func playerAttack(cfgState *config.ConfigState,MoveURL string,movat *MoveAttack, plpokstat *PlayerPokemonStats, enpokstat *EnemyPokemonStats) string{
+func playerAttack(cfgState *config.ConfigState,MoveURL string,movat *MoveAttack, plpokstat *PlayerPokemonStats, enpokstat *EnemyPokemonStats) (string,int){
 	
 	moveStats, err := cfgState.PokeapiClient.InvokeMove(MoveURL)
-	if err!=nil { return  "Move values not imported"}
+	if err!=nil { return  "Move values not imported",0}
 	hitChance := rng.Intn(12)// 1/12 chance to miss
 	hitmult := rng.Float64()
 	if moveStats.Accuracy <56{
-		return "low Accuracy"
+		return "low Accuracy",0
 	}
 	
 	if moveStats.DamageClass.Name == "physical" {
 		if hitChance == 0 {
-			return "physical attack failed"
+			return "physical attack failed",0
 		}
 		enemy_defense := enpokstat.Defense	
 		player_damage := plpokstat.Attack 
@@ -470,7 +492,7 @@ func playerAttack(cfgState *config.ConfigState,MoveURL string,movat *MoveAttack,
 	
 	}else if moveStats.DamageClass.Name == "special"{
 		if hitChance == 12 || hitChance ==7 {
-			return "Special Attack failed"
+			return "Special Attack failed",0
 		}
 		sed := enpokstat.SpecialDefense
 		spd := plpokstat.SpecialAttack
@@ -494,7 +516,7 @@ func playerAttack(cfgState *config.ConfigState,MoveURL string,movat *MoveAttack,
 		if moveStats.Meta.AilmentChance > 0 {
 			movat.enStatusEffect = moveStats.Meta.Ailment.Name}
 	}else{
-		return "Nothing there in moveStats"
+		return "Nothing there in moveStats",0
 	}
 	
 	curhp:= enpokstat.CurHP
@@ -504,7 +526,7 @@ func playerAttack(cfgState *config.ConfigState,MoveURL string,movat *MoveAttack,
 	}
 	enpokstat.CurHP = curhp
 
-	return fmt.Sprintf("Success %d",movat.endamage)
+	return "Success",movat.endamage
 }
 
 func randFloat(min, max float64) float64 {
@@ -742,9 +764,12 @@ func (m *btBaseModel) View() string {
 		logContent := lipgloss.JoinVertical(lipgloss.Left, m.battlelog...)
 
 		emptybox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0, 0).Width(10).Height(5).Align(lipgloss.Left).Render()
-		commandAttributes:= lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("220")).Padding(0, 0).Width(37).Height(5).Align(lipgloss.Left).Render(commandAttrContent)
-		commandListBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("220")).Padding(0, 0).Width(20).Height(5).Align(lipgloss.Left).Render(commandBoxContent)
-		battlelog := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("#008080")).Padding(0,0).Width(64).Height(5).Align(lipgloss.Center).Render(logContent)
+		commandAttributes:= lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("220")).
+									Padding(0, 0).Width(37).Height(5).Align(lipgloss.Left).Render(commandAttrContent)
+		commandListBox := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("220")).
+									Padding(0, 0).Width(20).Height(5).Align(lipgloss.Center).Render(commandBoxContent)
+		battlelog := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("#008080")).
+									Padding(0,0).Width(64).Height(5).Align(lipgloss.Left).Render(logContent)
 
 		
 		commandBox := lipgloss.JoinHorizontal(lipgloss.Left,emptybox,commandListBox,
@@ -752,10 +777,12 @@ func (m *btBaseModel) View() string {
 
 		
 		enemyViewBox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0,0,0,0).Width(64).Height(15).Align(lipgloss.Center)
-		enemyStatusBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#00CFFF")).Padding(0,0,0,0).Width(40).Height(3).Align(lipgloss.Center)
+		enemyStatusBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#00CFFF")).
+							Padding(0,0,0,0).Width(40).Height(3).Align(lipgloss.Center)
 		
 		playerViewBox := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0, 0, 0, 0).Width(64).Height(15).Align(lipgloss.Center)
-		playerStatusBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#F25D94")).Padding(0,0,0,0).Width(40).Height(3).Align(lipgloss.Center)
+		playerStatusBox := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#F25D94")).
+							Padding(0,0,0,0).Width(40).Height(3).Align(lipgloss.Center)
 		
 
 		//enemy stats box
