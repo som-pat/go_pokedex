@@ -54,6 +54,10 @@ type btBaseModel struct {
 	logchannel   	chan string
 	battlelog       []string
 	showinspect		bool
+	checkplshake    bool
+	plshakech		chan bool
+	checkenshake	bool
+	enshakech		chan bool
 }
 
 type Paginatedlisting struct {
@@ -100,7 +104,11 @@ func takeInput(cfgState *config.ConfigState) *btBaseModel {
 		turnComplete: make(chan bool,1),
 		logchannel:	  make(chan string,4),
 		battlelog:    []string{},
-		showinspect:  false,	  
+		showinspect:  false,
+		plshakech:    make(chan bool,1),
+		checkplshake: false,
+		enshakech:	  make(chan bool,1),
+		checkenshake: false, 
 	}
 }
 
@@ -146,7 +154,29 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, func() tea.Msg {
 			return LogMessage{log: logMsg}
 			}
-		}	
+		}
+
+	case shake := <- m.plshakech:
+		if shake{
+			m.checkplshake = true
+			go func(){
+				time.Sleep(1500 *time.Millisecond)
+				m.plshakech <- false
+			}()
+		}else{
+			m.checkplshake =false
+		}
+	case shake := <- m.enshakech:
+		if shake{
+			m.checkenshake = true
+			go func(){
+				time.Sleep(1500 *time.Millisecond)
+				m.enshakech <- false
+			}()
+		}else{
+			m.checkenshake =false
+		}
+
 	default:
 		switch msg := msg.(type) {
 		case LogMessage:
@@ -288,6 +318,7 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.battlestate = false
 					m.showmsg = false
 					m.attackstate = false
+					
 					m.textInput.SetValue("") 
 
 				}else if strings.HasPrefix(m.textInput.Value(),"battle") {
@@ -313,6 +344,7 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					})
 
 				}else if m.battlestate && !m.attackstate{
+					m.battlelog =nil
 					m.startLogging()				
 					switch m.commands[m.selCom] {
 					case "Attack":					
@@ -320,7 +352,7 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						InventoryView(m.cfgState,m.UserInv,"move",m.selswitch)
 						m.attributes = m.UserInv.MoveName
 						m.attackstate = true
-						if m.player.CurHP >0 && m.enemy.CurHP>0{
+						if m.player.CurHP >1 && m.enemy.CurHP>1{
 							go m.AttackSequence()
 						}else{
 							m.handleSwitch()
@@ -347,22 +379,6 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					m.textInput.SetValue("")
 					return m, cmd
-
-				// }else if m.battlestate && m.attackstate{
-				// 	var endev string
-				// 	m.textInput.SetValue(m.UserInv.MoveDescriptions[m.selmove])
-				// 	dev:= playerAttack(m.cfgState,m.textInput.Value(),m.MoAt,m.player,m.enemy)
-				// 	m.output = fmt.Sprintf("%s,%d,%d,%s,%d,%s",m.textInput.Value(),m.player.MaxHP,m.player.Attack,m.UserInv.PokeName[m.selswitch],m.MoAt.endamage,dev)
-				// 	if dev == "Success"{
-				// 		endev = enemyAttack(m.cfgState,m.enemy,m.player,m.MoAt)
-				// 	}
-				// 	if endev == dev{
-				// 		m.output = "Turn complete"
-				// 		m.attackstate = false
-				// 	}else{
-				// 		m.output = "Turn complete with missed attacks"
-				// 		m.attackstate = false
-				// 	}
 					
 					
 				}else {
@@ -454,21 +470,23 @@ func InventoryView(cfgState *config.ConfigState,uvin *UserInventory,swcase strin
 }
 
 func(m *btBaseModel) AttackSequence(){
+	
 	m.moveMutex.Lock()
 	defer m.moveMutex.Unlock()
+	
 	m.logchannel <-"Player attacks.."
-	// time.Sleep(10 *time.Microsecond)
 	m.textInput.SetValue(m.UserInv.MoveDescriptions[m.selmove])
 	plres,dam := playerAttack(m.cfgState,m.textInput.Value(),m.MoAt,m.player,m.enemy)
 	m.logchannel <- fmt.Sprintf("Player's attack result: %d ", dam)
-	// m.output += fmt.Sprintf("Player's attack result: %s \t", plres)
-	// time.Sleep(1 *time.Second)
-	if plres =="Success"{
+	if dam >0{m.enshakech <- true}
+	if plres !="Success" || m.enemy.CurHP <=1{
+		m.logchannel<-fmt.Sprintf("Successfully Defeated, Received %d",m.enemy.BaseExperience)
+	}else{
+		time.Sleep(800 *time.Microsecond)
 		m.logchannel <- "Enemy attacks..."
-		// time.Sleep(10*time.Microsecond)
-		enres := enemyAttack(m.cfgState,m.enemy,m.player,m.MoAt)
-		m.logchannel <- fmt.Sprintf("Enemy's attack result: %s", enres)
-		// m.output += fmt.Sprintf("Enemy's attack result: %s", enres)
+		_,dam := enemyAttack(m.cfgState,m.enemy,m.player,m.MoAt)
+		if dam >0 {m.plshakech <- true}		
+		m.logchannel <- fmt.Sprintf("Enemy's attack result: %d", dam)
 	}
 	m.turnComplete <-true
 }
@@ -553,18 +571,18 @@ func DigsplitString(s string) (string, string) {
     return s[:index], s[index:]
 }
 
-func enemyAttack(cfgState *config.ConfigState,enemy *EnemyPokemonStats,player *PlayerPokemonStats,move *MoveAttack) string{
+func enemyAttack(cfgState *config.ConfigState,enemy *EnemyPokemonStats,player *PlayerPokemonStats,move *MoveAttack) (string, int){
 	moveurl := "https://pokeapi.co/api/v2/move/29"
 	moveStats, err := cfgState.PokeapiClient.InvokeMove(moveurl)
-	if err!=nil{return "Url at Fault"}
+	if err!=nil{return "Url at Fault",0}
 	_,lvl := DigsplitString(enemy.Level)
 	level, converr := strconv.Atoi(lvl)
-	if converr != nil{return "Unable to convert"}
-	attackMiss := rng.Intn(36)
+	if converr != nil{return "Unable to convert",0}
+	attackMiss := rng.Intn(128)
 	a,b := 0.08, 0.29
 	enpower := randFloat(a,b)
 
-	if attackMiss != 29{
+	if attackMiss != 69{
 		pdef := player.Defense	
 		edam := enemy.Attack 
 		basedamage := int((moveStats.Power *(edam/pdef))/int(math.Round((float64(level*10) * enpower))))
@@ -575,6 +593,8 @@ func enemyAttack(cfgState *config.ConfigState,enemy *EnemyPokemonStats,player *P
 		if moveStats.Meta.AilmentChance > 0 && rand.Intn(100) < moveStats.Meta.AilmentChance {
 			move.plStatusEffect = moveStats.Meta.Ailment.Name
 		}
+	}else{
+		return "Attack Missed",0
 	}
 
 	curhp := player.CurHP
@@ -583,10 +603,9 @@ func enemyAttack(cfgState *config.ConfigState,enemy *EnemyPokemonStats,player *P
 		player.CurHP =0
 	}else{player.CurHP = curhp}
 
-	return fmt.Sprintf("Success,%d",move.pldamage)
+	return "Success",move.pldamage
 
 }
-
 
 type clearMessage struct{}
 
@@ -608,8 +627,10 @@ type UserInventory struct{
 type MoveAttack struct{
 	enStatusEffect	string
 	plStatusEffect	string
-	endamage			int
-	pldamage			int
+	endamage		int
+	pldamage		int
+	plcond			bool
+	encond          bool
 }
 
 type PlayerPokemonStats struct{
@@ -662,6 +683,8 @@ func InitMovatt() *MoveAttack{
 		plStatusEffect: "",
 		endamage: 		0,
 		pldamage: 		0,
+		encond: 	false,
+		plcond:     false,	
 	}
 }
 
@@ -724,6 +747,31 @@ func HealthBar(curHP,maxHP int)string{
 	empty :=  emptyStyle.Render(strings.Repeat(" ",emptyWidth))
 	hpercent *= 100
 	return fmt.Sprintf("%s%s %d%%", filled, empty, int(hpercent))
+
+}
+
+
+
+func DamageShake(frac float64)(int, int){
+	if frac<=0 || frac >=1{
+		return 0,0
+	}
+	mid:= 0.25
+
+	offsetx := 4.5 * math.Sin(20.8 * math.Pi + 2.3)+
+			   2.1 * math.Sin(5.6 * math.Pi + 5)+
+			   1.9 * math.Sin(11.2 *math.Pi +1.2)
+	offsety	:= 4 * math.Sin(16.8 * math.Pi - 2.3)+
+			   2.8 * math.Sin(8.6 * math.Pi + 4)+
+			   1.2 * math.Sin(1.2 *math.Pi +0)
+	
+	var lim float64
+	if frac <= mid{
+		lim = (1/mid) * frac
+	}else{
+		lim = 1- (frac-mid)/(1-mid)
+	}
+	return int(offsetx * lim),int(offsety * lim)
 
 }
 
@@ -823,13 +871,29 @@ func (m *btBaseModel) View() string {
 		bottomRightPokemon := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(m.UserInv.PokeSprite)
 		bottomRightStatus := lipgloss.NewStyle().Foreground(lipgloss.Color("#00CFFF")).Render(plstats)
 
-		
+
+		shakexPlayer, shakeyPlayer := 0, 0
+    	shakexEnemy, shakeyEnemy := 0, 0
 		// Display Pokémon and commands
+		if m.checkenshake {
+			a,b := 0.3 , 0.8
+			frac:= randFloat(a,b) 
+			shakexEnemy, shakeyEnemy = DamageShake(frac)
+		}
+
+		if m.checkplshake {
+			frac := randFloat(0.2, 0.8)
+			shakexPlayer, shakeyPlayer = DamageShake(frac)
+		}
 		enemyPokemonView := lipgloss.JoinVertical(lipgloss.Top,
-			lipgloss.PlaceHorizontal(0,lipgloss.Left,topLeftPokemon))
+			lipgloss.PlaceHorizontal(0+shakexEnemy,lipgloss.Left,
+				lipgloss.PlaceVertical(10+shakeyEnemy,lipgloss.Top,topLeftPokemon)))
+		
+				
 		
 		playerPokemonView := lipgloss.JoinVertical(lipgloss.Top,
-			lipgloss.PlaceHorizontal(60,lipgloss.Right,bottomRightPokemon))
+			lipgloss.PlaceHorizontal(60+shakexPlayer,lipgloss.Right,
+				lipgloss.PlaceVertical(10+shakeyPlayer, lipgloss.Top,bottomRightPokemon)))
 		
 		enemyBox := lipgloss.JoinVertical(lipgloss.Center,enemyViewBox.Render(enemyPokemonView),
 					playerStatusBox.Render(topLeftStatus))
@@ -851,9 +915,7 @@ func (m *btBaseModel) View() string {
 		lb := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0, 0).Width(12).Height(18).Align(lipgloss.Left).Render()
 		rb := lipgloss.NewStyle().Border(lipgloss.HiddenBorder()).Padding(0, 0).Width(15).Height(18).Align(lipgloss.Left).Render()
 		
-		// termWidth, termHeight := lipgloss.Width(outerbox)+2, lipgloss.Height(outerbox)+2
-		// centeredOuterBox := lipgloss.Place(termWidth, termHeight, 
-		// 			lipgloss.Center, lipgloss.Center, outerbox)							
+						
 		centerouterbox := lipgloss.JoinHorizontal(lipgloss.Left,lb,outerbox,rb)
 		return lipgloss.JoinVertical(lipgloss.Left,
 						centerouterbox,
