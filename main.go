@@ -30,7 +30,8 @@ func Run(cfgState *config.ConfigState) {
 	if err != nil{ log.Fatalf("Error encountered %v",err)}
 	defer f.Close()
 
-    p:= tea.NewProgram(takeInput(cfgState),tea.WithAltScreen())
+	p := tea.NewProgram(MenuModel(cfgState),tea.WithAltScreen())
+    // p:= tea.NewProgram(takeInput(cfgState),tea.WithAltScreen())
     if _,err := p.Run(); err != nil {
         fmt.Printf("Error starting program: %v\n", err)
     }

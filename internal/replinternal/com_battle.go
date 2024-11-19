@@ -32,7 +32,7 @@ func call_battle(cfg_state *config.ConfigState, args ...string) (string,[]string
 		return "", nil, fmt.Errorf("%s not a valid pokemon", tobattle)
 	}else{
 		carrier = append(carrier, pokeDetails.Name)
-		ranlev:=rng.Intn(12)
+		ranlev:=rng.Intn(5)
 		if ranlev ==0{ranlev =1}
 		a,b := 0.25,0.70
 		valower := randFloat(a,b)
@@ -57,6 +57,7 @@ func call_battle(cfg_state *config.ConfigState, args ...string) (string,[]string
 			cmdseq.WriteString(" [Image Unavailable]\n")
 		}
 		carrier = append(carrier, ascii_img2)
+		carrier = append(carrier, pokeDetails.Sprites.FrontDefault)
 	}
 
 	cmdseq.WriteString("Engaging")
