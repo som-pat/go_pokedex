@@ -4,13 +4,8 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	// "regexp"
 	"sync"
 	"unicode"
-
-	// "os"
-	// "os/exec"
-	// "runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -23,7 +18,9 @@ import (
 	"github.com/som-pat/poke_dex/internal/replinternal"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"github.com/som-pat/poke_dex/app"
 )
+
 var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 const cmdview = 4
 
@@ -64,6 +61,7 @@ type btBaseModel struct {
 	width 			int
 	height 			int
 	curevent		int
+	Navigator		*app.AppNavigator
 }
 
 type Paginatedlisting struct {
@@ -76,7 +74,7 @@ type LogMessage struct{
 	log 	string
 }
 
-func takeInput(cfgState *config.ConfigState) *btBaseModel {
+func takeInput(cfgState *config.ConfigState, navigator *app.AppNavigator) *btBaseModel {
 	ti := textinput.New()
 	ti.Placeholder = "[Press 'esc' to quit, 'up'/'down'/'right'/'left' to navigate, 'enter' to confirm]"
 	ti.Focus()
@@ -118,7 +116,8 @@ func takeInput(cfgState *config.ConfigState) *btBaseModel {
 		// checkenshake: false,
 		comsel:       false,
 		curevent: 	  0,
-		eventchan:	  make(chan bool,1),	 
+		eventchan:	  make(chan bool,1),
+		Navigator: 	  navigator,	 
 	}
 }
 
@@ -185,7 +184,7 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyMsg:
 			switch msg.String() {
 			case "esc":
-				return m, tea.Quit
+				return m.Navigator.GoToMenu(), nil //battlemode m.Navigator.GoToMenu()
 			case "left":
 				switch m.commands[m.selCom]  {
 				case "Attack":
@@ -261,6 +260,7 @@ func (m *btBaseModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.textInput.SetValue(fmt.Sprintf("catch %s",selPok))
 					}
 				}
+
 			case "down":
 				if m.battlestate && m.selCom <len(m.commands)-1{
 					m.selCom++

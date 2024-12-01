@@ -27,13 +27,6 @@ package imagegen
 // 	}
 // 	var frames []string
 // 	switch {
-// 	// case strings.Contains(fileType, "png"):
-// 	// 	img, err := png.Decode(bytes.NewReader(body))
-// 	// 	if err != nil {
-// 	// 		return nil, fmt.Errorf("failed to decode PNG: %v", err)
-// 	// 	}
-// 	// 	frame := processImageFrame(img, reqwidth)
-// 	// 	frames = append(frames, frame)
 // 	case strings.Contains(fileType, "gif"):
 // 		gifImg, err := gif.DecodeAll(bytes.NewReader(body))
 // 		if err != nil {
@@ -54,7 +47,7 @@ package imagegen
 // 	img = resize.Resize(uint(reqwidth), 0, img, resize.Lanczos3)
 // 	cropimg := image_cropping(img)
 // 	ascii := rgbconvertToAscii(cropimg, asciiChars)
-// 	return trimAndPadAscii(ascii)
+// 	return ascii
 // }
 
 
@@ -65,7 +58,7 @@ package imagegen
 // 			break
 // 		}	
 // 		for _, frame := range frames {
-// 			//fmt.Print("\033[H\033[2J") // Clear screen
+// 			fmt.Print("\033[H\033[2J") // Clear screen
 // 			fmt.Println(frame)
 // 			time.Sleep(delay)
 // 		}
@@ -170,7 +163,7 @@ package imagegen
 //     return strings.Join(lines, "\n")
 // }
 
-// func hmain() {
+// func main() {
 // 	imageURL := "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/6.gif"
 // 	frames, err := gifAsciiGen(imageURL, 64) 
 // 	if err != nil {
@@ -179,7 +172,7 @@ package imagegen
 // 	}
 
 // 	// Set delay between frames (adjust to match GIF animation speed)
-// 	delay := 100 * time.Millisecond
+// 	delay := 225 * time.Millisecond
 // 	displayAsciiAnimation(frames, delay)
 // }
 

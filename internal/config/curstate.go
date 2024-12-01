@@ -6,7 +6,6 @@ import (
 
 
 type ConfigState struct{
-	AppState			 string
 	PlayerName			 string
 	PokeapiClient 		 pokeapi.Client
 	NextLocURL 	  		 *string

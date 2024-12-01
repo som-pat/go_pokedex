@@ -8,6 +8,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/som-pat/poke_dex/internal/config"
 	"github.com/som-pat/poke_dex/internal/pokeapi"
+	"github.com/som-pat/poke_dex/app"
+	"github.com/som-pat/poke_dex/storymode"
 )
 
 
@@ -30,7 +32,23 @@ func Run(cfgState *config.ConfigState) {
 	if err != nil{ log.Fatalf("Error encountered %v",err)}
 	defer f.Close()
 
-	p := tea.NewProgram(MenuModel(cfgState),tea.WithAltScreen())
+	var navigator *app.AppNavigator
+	var menu Menu
+	var story storymode.SMStoryModel
+	var battle *btBaseModel
+
+	menu = MenuModel(cfgState, nil)
+	story = storymode.StoryInput(cfgState, nil)
+	battle = takeInput(cfgState, nil)
+
+	navigator = app.NewAppNavigator(&menu, &story, battle)
+	
+	menu.Navigator = navigator
+	story.Navigator = navigator
+	battle.Navigator = navigator
+
+	p := tea.NewProgram(navigator.GoToMenu(),tea.WithAltScreen())
+	// p := tea.NewProgram(MenuModel(cfgState),tea.WithAltScreen())
     // p:= tea.NewProgram(takeInput(cfgState),tea.WithAltScreen())
     if _,err := p.Run(); err != nil {
         fmt.Printf("Error starting program: %v\n", err)

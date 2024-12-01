@@ -272,6 +272,7 @@ type PokemonDetails struct{
 }
 
 
+
 type PokemonSpecies struct {
 	BaseHappiness int `json:"base_happiness"`
 	CaptureRate   int `json:"capture_rate"`

@@ -132,7 +132,7 @@ func GifGen(imageURL string,reqwidth int) ([]string,time.Duration,error){
 	default:
 		return nil,0, fmt.Errorf("unsupported image format")
 	}
-	delay := 100 * time.Millisecond
+	delay := 150 * time.Millisecond
 	// displayAsciiAnimation(frames, delay)
 	return frames,delay ,nil
 } 

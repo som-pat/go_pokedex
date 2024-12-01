@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/som-pat/poke_dex/imagegen"
 	"github.com/som-pat/poke_dex/internal/config"
+	"github.com/som-pat/poke_dex/app"
 )
 
 const banner = `
@@ -28,10 +30,13 @@ type Menu struct {
 	gifFrames     []string
 	gifDelay      time.Duration
 	currentFrame  int
+	inputstate	  bool
+	nameInput     strings.Builder
+	Navigator 	  *app.AppNavigator
 }
 type gifTickMsg time.Time
 
-func MenuModel(cfgstate *config.ConfigState) Menu {
+func MenuModel(cfgstate *config.ConfigState, navigator *app.AppNavigator) Menu {
 	gifUrl := "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/showdown/6.gif"
 	frames, delay, err := imagegen.GifGen(gifUrl, 54) 
 	if err != nil {
@@ -39,14 +44,18 @@ func MenuModel(cfgstate *config.ConfigState) Menu {
 	}
 	
 	return Menu{
-		choices:      []string{"Story Mode", "Battle Mode", "Exit"},
-		cursor:       0,
-		cfgstate:     cfgstate,
-		gifFrames:    frames,
-		gifDelay:     delay,
-		currentFrame: 0,
+		choices:      	[]string{"Story Mode", "Battle Mode", "Exit"},
+		cursor:       	0,
+		cfgstate:     	cfgstate,
+		gifFrames:    	frames,
+		gifDelay:     	delay,
+		currentFrame: 	0,
+		inputstate: 	true,
+		nameInput: 	  	strings.Builder{},
+		Navigator: 		navigator,
 	}
 }
+
 
 func (m Menu) Init() tea.Cmd {
   return tea.Tick(m.gifDelay, func(t time.Time) tea.Msg {
@@ -57,7 +66,7 @@ func (m Menu) Init() tea.Cmd {
 
 func (m Menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-  case gifTickMsg:
+  	case gifTickMsg:
     m.currentFrame = (m.currentFrame+1)%len(m.gifFrames)
     return m, tea.Tick(m.gifDelay, func(t time.Time) tea.Msg {
       return gifTickMsg(t)
@@ -68,6 +77,25 @@ func (m Menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 	case tea.KeyMsg:
+		if m.inputstate{
+			switch msg.String(){
+			case "enter":
+				m.cfgstate.PlayerName = m.nameInput.String()
+				m.inputstate = false
+			case "backspace":
+				name := m.nameInput.String()
+				if len(name) > 0{
+					m.nameInput.Reset()
+					m.nameInput.WriteString(name[:len(name)-1])
+				}
+			default:
+				if len(msg.String()) == 1 {
+					m.nameInput.WriteString(msg.String())
+				}
+			}
+			return m, nil
+			
+		}
 		switch msg.String() {
 		case "up":
 			if m.cursor > 0 {
@@ -80,11 +108,9 @@ func (m Menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			switch m.choices[m.cursor] {
 			case "Battle Mode":
-				m.cfgstate.AppState = "BattleMode"
-				return takeInput(m.cfgstate), nil
+				return m.Navigator.GoToBattleMode(), nil
 			case "Story Mode":
-				m.cfgstate.AppState = "StoryMode"
-				return m, nil
+				return m.Navigator.GoToStoryMode(), nil
 			case "Exit":
 				return m, tea.Quit
 			}
@@ -94,6 +120,9 @@ func (m Menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Menu) View() string {
+	if m.inputstate{
+		return fmt.Sprintf("%s\n\nEnter your name: %s", banner, m.nameInput.String())
+	}
 	var options string
 	for i, choice := range m.choices {
 		cursor := " "
@@ -105,7 +134,7 @@ func (m Menu) View() string {
 
 	gifDisplay := m.gifFrames[m.currentFrame]
 	bannerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220"))
-	menuStyle := lipgloss.NewStyle().Border(lipgloss.OuterHalfBlockBorder(),false,false,false,false).
+	menuStyle := lipgloss.NewStyle().Border(lipgloss.OuterHalfBlockBorder(),false,false,false,false).   
 		Bold(true).Padding(2).Align(lipgloss.Left)
 	menuPlacement := lipgloss.Place(20, 28, lipgloss.Center, lipgloss.Center, menuStyle.Render(options))
 	// w,h := lipgloss.Size(gifDisplay)

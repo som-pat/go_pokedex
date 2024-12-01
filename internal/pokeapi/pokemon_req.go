@@ -8,8 +8,17 @@ import (
 )
 
 
-func (c *Client) InvokePokeCatch(Poke_name string) (PokemonDetails,error){
-	end_point := "/pokemon/" + Poke_name
+func (c *Client) InvokePokeCatch(Poke_name interface{}) (PokemonDetails,error){
+	var nameid string
+	switch v := Poke_name.(type){
+	case string:
+		nameid = v
+	case int:
+		nameid = fmt.Sprintf("%d",v)
+	default:
+		return PokemonDetails{}, fmt.Errorf("not proper type")
+	}
+	end_point := "/pokemon/" + nameid
 	full_url := baseURL + end_point
 
 
@@ -77,3 +86,4 @@ func (c *Client) EncounterPoke(Poke_name string) (FilPokemonSpecies,error){
 	}
 	return poke_species_details, nil
 }
+
